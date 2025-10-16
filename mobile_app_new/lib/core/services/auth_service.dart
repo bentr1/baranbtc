@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:uuid/uuid.dart';
 
+import '../config/app_config.dart';
 import '../models/user_model.dart';
 import 'api_service.dart';
 import 'local_storage_service.dart';
@@ -65,18 +66,18 @@ class AuthService {
   static Future<User> login({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
       
-      final response = await ApiService.post(
-        '/auth/login',
-        data: {
+      final response = await ApiService.post('/auth/login', {
         'email': email,
         'password': _hashPassword(password),
         'deviceId': deviceId,
         'deviceName': await _getDeviceName(),
         'deviceType': Platform.isIOS ? 'ios' : 'android',
+        'rememberMe': rememberMe,
       });
 
       if (response['success']) {
@@ -100,23 +101,17 @@ class AuthService {
 
   // Register
   static Future<User> register({
+    required String name,
     required String email,
     required String password,
-    required String tcId,
-    required String firstName,
-    required String lastName,
   }) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
       
-      final response = await ApiService.post(
-        '/auth/register',
-        data: {
+      final response = await ApiService.post('/auth/register', {
+        'name': name,
         'email': email,
         'password': _hashPassword(password),
-        'tcId': tcId,
-        'firstName': firstName,
-        'lastName': lastName,
         'deviceId': deviceId,
         'deviceName': await _getDeviceName(),
         'deviceType': Platform.isIOS ? 'ios' : 'android',
@@ -148,7 +143,7 @@ class AuthService {
       final token = await _storage.read(key: _authTokenKey);
       if (token != null) {
         try {
-          await ApiService.post('/auth/logout', data: {});
+          await ApiService.post('/auth/logout', {});
         } catch (e) {
           // Ignore logout API errors
         }
@@ -158,11 +153,8 @@ class AuthService {
       await _storage.delete(key: _authTokenKey);
       await _storage.delete(key: _refreshTokenKey);
       await _storage.delete(key: _userDataKey);
-      
-      // Clear local storage
-      await LocalStorageService.clear();
     } catch (e) {
-      // Ensure data is cleared even if there's an error
+      // Clear stored data even if API call fails
       await _storage.delete(key: _authTokenKey);
       await _storage.delete(key: _refreshTokenKey);
       await _storage.delete(key: _userDataKey);
@@ -177,17 +169,17 @@ class AuthService {
         throw Exception('No refresh token available');
       }
 
-      final response = await ApiService.post('/auth/refresh', data: {
+      final response = await ApiService.post('/auth/refresh', {
         'refreshToken': refreshToken,
       });
 
       if (response['success']) {
         final user = User.fromJson(response['data']['user']);
-        final newToken = response['data']['token'];
+        final token = response['data']['token'];
         final newRefreshToken = response['data']['refreshToken'];
 
         // Update stored tokens and user data
-        await _storage.write(key: _authTokenKey, value: newToken);
+        await _storage.write(key: _authTokenKey, value: token);
         await _storage.write(key: _refreshTokenKey, value: newRefreshToken);
         await _storage.write(key: _userDataKey, value: jsonEncode(user.toJson()));
 
@@ -201,11 +193,16 @@ class AuthService {
     }
   }
 
+  // Get auth token
+  static Future<String?> getAuthToken() async {
+    return await _storage.read(key: _authTokenKey);
+  }
+
   // Verify email
-  static Future<void> verifyEmail(String token) async {
+  static Future<void> verifyEmail(String code) async {
     try {
-      final response = await ApiService.post('/auth/verify-email', data: {
-        'token': token,
+      final response = await ApiService.post('/auth/verify-email', {
+        'code': code,
       });
 
       if (!response['success']) {
@@ -216,10 +213,23 @@ class AuthService {
     }
   }
 
+  // Resend verification code
+  static Future<void> resendVerificationCode() async {
+    try {
+      final response = await ApiService.post('/auth/resend-verification', {});
+
+      if (!response['success']) {
+        throw Exception(response['message'] ?? 'Failed to resend verification code');
+      }
+    } catch (e) {
+      throw Exception('Failed to resend verification code: ${e.toString()}');
+    }
+  }
+
   // Forgot password
   static Future<void> forgotPassword(String email) async {
     try {
-      final response = await ApiService.post('/auth/forgot-password', data: {
+      final response = await ApiService.post('/auth/forgot-password', {
         'email': email,
       });
 
@@ -237,7 +247,7 @@ class AuthService {
     required String newPassword,
   }) async {
     try {
-      final response = await ApiService.post('/auth/reset-password', data: {
+      final response = await ApiService.post('/auth/reset-password', {
         'token': token,
         'newPassword': _hashPassword(newPassword),
       });
@@ -250,25 +260,43 @@ class AuthService {
     }
   }
 
-  // Setup MFA
-  static Future<String> setupMFA() async {
+  // Generate MFA secret
+  static Future<Map<String, String>> generateMFASecret() async {
     try {
-      final response = await ApiService.post('/auth/mfa/setup', data: {});
+      final response = await ApiService.post('/auth/mfa/setup', {});
 
       if (response['success']) {
-        return response['data']['secret'];
+        return {
+          'secret': response['data']['secret'],
+          'qrCode': response['data']['qrCode'],
+        };
       } else {
-        throw Exception(response['message'] ?? 'MFA setup failed');
+        throw Exception(response['message'] ?? 'Failed to generate MFA secret');
       }
     } catch (e) {
-      throw Exception('MFA setup failed: ${e.toString()}');
+      throw Exception('Failed to generate MFA secret: ${e.toString()}');
+    }
+  }
+
+  // Verify MFA setup
+  static Future<void> verifyMFASetup(String code) async {
+    try {
+      final response = await ApiService.post('/auth/mfa/verify-setup', {
+        'code': code,
+      });
+
+      if (!response['success']) {
+        throw Exception(response['message'] ?? 'MFA setup verification failed');
+      }
+    } catch (e) {
+      throw Exception('MFA setup verification failed: ${e.toString()}');
     }
   }
 
   // Verify MFA
   static Future<void> verifyMFA(String code) async {
     try {
-      final response = await ApiService.post('/auth/mfa/verify', data: {
+      final response = await ApiService.post('/auth/mfa/verify', {
         'code': code,
       });
 
@@ -280,6 +308,34 @@ class AuthService {
     }
   }
 
+  // Biometric login
+  static Future<User> biometricLogin() async {
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      
+      final response = await ApiService.post('/auth/biometric-login', {
+        'deviceId': deviceId,
+      });
+
+      if (response['success']) {
+        final user = User.fromJson(response['data']['user']);
+        final token = response['data']['token'];
+        final refreshToken = response['data']['refreshToken'];
+
+        // Store tokens and user data
+        await _storage.write(key: _authTokenKey, value: token);
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+        await _storage.write(key: _userDataKey, value: jsonEncode(user.toJson()));
+
+        return user;
+      } else {
+        throw Exception(response['message'] ?? 'Biometric login failed');
+      }
+    } catch (e) {
+      throw Exception('Biometric login failed: ${e.toString()}');
+    }
+  }
+
   // Update profile
   static Future<User> updateProfile({
     String? firstName,
@@ -287,7 +343,7 @@ class AuthService {
     String? phone,
   }) async {
     try {
-      final response = await ApiService.put('/users/profile', data: {
+      final response = await ApiService.put('/users/profile', {
         if (firstName != null) 'firstName': firstName,
         if (lastName != null) 'lastName': lastName,
         if (phone != null) 'phone': phone,
@@ -314,7 +370,7 @@ class AuthService {
     required String newPassword,
   }) async {
     try {
-      final response = await ApiService.put('/users/change-password', data: {
+      final response = await ApiService.put('/users/change-password', {
         'currentPassword': _hashPassword(currentPassword),
         'newPassword': _hashPassword(newPassword),
       });
@@ -336,54 +392,11 @@ class AuthService {
         throw Exception(response['message'] ?? 'Account deletion failed');
       }
 
+      // Clear stored data
       await logout();
     } catch (e) {
       throw Exception('Account deletion failed: ${e.toString()}');
     }
-  }
-
-  // Biometric authentication
-  static Future<bool> authenticateWithBiometrics() async {
-    try {
-      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      if (!canCheckBiometrics) return false;
-
-      final availableBiometrics = await _localAuth.getAvailableBiometrics();
-      if (availableBiometrics.isEmpty) return false;
-
-      final isAuthenticated = await _localAuth.authenticate(
-        localizedReason: 'Please authenticate to access your account',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: true,
-        ),
-      );
-
-      return isAuthenticated;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Enable/disable biometric authentication
-  static Future<void> setBiometricEnabled(bool enabled) async {
-    await _storage.write(key: _biometricEnabledKey, value: enabled.toString());
-  }
-
-  // Check if biometric is enabled
-  static Future<bool> isBiometricEnabled() async {
-    final enabled = await _storage.read(key: _biometricEnabledKey);
-    return enabled == 'true';
-  }
-
-  // Get stored auth token
-  static Future<String?> getAuthToken() async {
-    return await _storage.read(key: _authTokenKey);
-  }
-
-  // Get stored refresh token
-  static Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
   }
 
   // Helper methods
@@ -417,16 +430,8 @@ class AuthService {
   }
 
   static Future<String> _getDeviceName() async {
-    try {
-      if (Platform.isIOS) {
-        return 'iOS Device';
-      } else if (Platform.isAndroid) {
-        return 'Android Device';
-      } else {
-        return 'Unknown Device';
-      }
-    } catch (e) {
-      return 'Unknown Device';
-    }
+    // This would get the actual device name
+    // For now, return a generic name
+    return Platform.isIOS ? 'iOS Device' : 'Android Device';
   }
 }

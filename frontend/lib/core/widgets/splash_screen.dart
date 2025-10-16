@@ -159,7 +159,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   style: TextStyle(
                     fontSize: 16.sp,
                     color: Colors.white.withOpacity(0.9),
-                    textAlign: TextAlign.center,
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../../app/widgets/common/custom_button.dart';
+import '../../../../app/widgets/common/custom_text_field.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../app/providers/auth/auth_provider.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -18,25 +17,17 @@ class RegisterPage extends ConsumerStatefulWidget {
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _tcIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+  bool _agreeToTerms = false;
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  bool _acceptTerms = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _nameController.dispose();
     _emailController.dispose();
-    _tcIdController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -44,34 +35,40 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_acceptTerms) {
-      setState(() {
-        _errorMessage = 'Kullanım Şartları ve Gizlilik Politikası\'nı kabul etmelisiniz';
-      });
+
+    if (!_agreeToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please agree to the terms and conditions'),
+          backgroundColor: AppConfig.errorColor,
+        ),
+      );
       return;
     }
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
-      await AuthService.register(
+      await ref.read(authProvider.notifier).register(
+        name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        tcId: _tcIdController.text.trim(),
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
       );
 
       if (mounted) {
         context.go('/email-verification');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppConfig.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -83,13 +80,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kayıt Ol'),
-        centerTitle: true,
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24.w),
@@ -98,277 +89,236 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(height: 24.h),
-
-                // Title
-                Text(
-                  'Hesap Oluştur',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  'Bilgilerinizi girin ve hesabınızı oluşturun',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-
-                SizedBox(height: 32.h),
-
-                // Error Message
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: AppConfig.errorColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: AppConfig.errorColor.withOpacity(0.3),
+                SizedBox(height: 48.h),
+                
+                // Logo and Title
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80.w,
+                        height: 80.w,
+                        decoration: BoxDecoration(
+                          color: AppConfig.primaryColor,
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
+                        child: Icon(
+                          Icons.trending_up,
+                          size: 40.w,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: AppConfig.errorColor,
-                          size: 20.sp,
+                      SizedBox(height: 24.h),
+                      Text(
+                        'Create Account',
+                        style: TextStyle(
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppConfig.primaryColor,
                         ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppConfig.errorColor,
-                            ),
-                          ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Sign up to get started',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: Colors.grey[600],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 24.h),
-                ],
-
-                // First Name Field
+                ),
+                
+                SizedBox(height: 48.h),
+                
+                // Name Field
                 CustomTextField(
-                  label: 'Ad',
-                  hint: 'Adınızı girin',
-                  controller: _firstNameController,
-                  textCapitalization: TextCapitalization.words,
+                  label: 'Full Name',
+                  hint: 'Enter your full name',
+                  controller: _nameController,
+                  textInputAction: TextInputAction.next,
+                  prefixIcon: Icon(Icons.person_outline),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Ad gerekli';
+                      return 'Please enter your name';
                     }
                     if (value.length < 2) {
-                      return 'Ad en az 2 karakter olmalı';
+                      return 'Name must be at least 2 characters';
                     }
                     return null;
                   },
                 ),
-
+                
                 SizedBox(height: 16.h),
-
-                // Last Name Field
-                CustomTextField(
-                  label: 'Soyad',
-                  hint: 'Soyadınızı girin',
-                  controller: _lastNameController,
-                  textCapitalization: TextCapitalization.words,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Soyad gerekli';
-                    }
-                    if (value.length < 2) {
-                      return 'Soyad en az 2 karakter olmalı';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: 16.h),
-
+                
                 // Email Field
                 CustomTextField(
-                  label: 'E-posta',
-                  hint: 'ornek@email.com',
-                  type: TextFieldType.email,
+                  label: 'Email',
+                  hint: 'Enter your email',
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  inputType: InputType.email,
+                  textInputAction: TextInputAction.next,
+                  prefixIcon: Icon(Icons.email_outlined),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'E-posta adresi gerekli';
+                      return 'Please enter your email';
                     }
                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Geçerli bir e-posta adresi girin';
+                      return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
-
+                
                 SizedBox(height: 16.h),
-
-                // TC ID Field
-                CustomTextField(
-                  label: 'TC Kimlik No',
-                  hint: 'TC Kimlik numaranızı girin',
-                  controller: _tcIdController,
-                  type: TextFieldType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(11),
-                  ],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'TC Kimlik No gerekli';
-                    }
-                    if (value.length != 11) {
-                      return 'TC Kimlik No 11 haneli olmalı';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: 16.h),
-
+                
                 // Password Field
                 CustomTextField(
-                  label: 'Şifre',
-                  hint: 'Şifrenizi girin',
-                  type: TextFieldType.password,
+                  label: 'Password',
+                  hint: 'Enter your password',
                   controller: _passwordController,
-                  obscureText: _obscurePassword,
+                  inputType: InputType.password,
+                  textInputAction: TextInputAction.next,
+                  prefixIcon: Icon(Icons.lock_outline),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Şifre gerekli';
+                      return 'Please enter your password';
                     }
                     if (value.length < 8) {
-                      return 'Şifre en az 8 karakter olmalı';
+                      return 'Password must be at least 8 characters';
                     }
                     if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)').hasMatch(value)) {
-                      return 'Şifre en az 1 büyük harf, 1 küçük harf ve 1 rakam içermeli';
+                      return 'Password must contain uppercase, lowercase and number';
                     }
                     return null;
                   },
                 ),
-
+                
                 SizedBox(height: 16.h),
-
+                
                 // Confirm Password Field
                 CustomTextField(
-                  label: 'Şifre Tekrar',
-                  hint: 'Şifrenizi tekrar girin',
-                  type: TextFieldType.password,
+                  label: 'Confirm Password',
+                  hint: 'Confirm your password',
                   controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
+                  inputType: InputType.password,
+                  textInputAction: TextInputAction.done,
+                  prefixIcon: Icon(Icons.lock_outline),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Şifre tekrarı gerekli';
+                      return 'Please confirm your password';
                     }
                     if (value != _passwordController.text) {
-                      return 'Şifreler eşleşmiyor';
+                      return 'Passwords do not match';
                     }
                     return null;
                   },
                 ),
-
-                SizedBox(height: 24.h),
-
-                // Terms Checkbox
+                
+                SizedBox(height: 16.h),
+                
+                // Terms and Conditions
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Checkbox(
-                      value: _acceptTerms,
+                      value: _agreeToTerms,
                       onChanged: (value) {
                         setState(() {
-                          _acceptTerms = value ?? false;
+                          _agreeToTerms = value ?? false;
                         });
                       },
                       activeColor: AppConfig.primaryColor,
                     ),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _acceptTerms = !_acceptTerms;
-                          });
-                        },
-                        child: Text(
-                          'Kullanım Şartları ve Gizlilik Politikası\'nı okudum ve kabul ediyorum.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.8),
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
                           ),
+                          children: [
+                            const TextSpan(text: 'I agree to the '),
+                            TextSpan(
+                              text: 'Terms of Service',
+                              style: TextStyle(
+                                color: AppConfig.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: TextStyle(
+                                color: AppConfig.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
-
+                
                 SizedBox(height: 32.h),
-
+                
                 // Register Button
-                LoadingButton(
-                  text: 'Kayıt Ol',
-                  onPressed: _register,
+                CustomButton(
+                  text: 'Create Account',
+                  onPressed: _isLoading ? null : _register,
                   isLoading: _isLoading,
                   isFullWidth: true,
+                  type: ButtonType.primary,
+                  size: ButtonSize.large,
                 ),
-
+                
                 SizedBox(height: 24.h),
-
+                
+                // Divider
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                  ],
+                ),
+                
+                SizedBox(height: 24.h),
+                
                 // Login Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Zaten hesabınız var mı? ',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      "Already have an account? ",
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
                       ),
                     ),
                     TextButton(
                       onPressed: () => context.go('/login'),
                       child: Text(
-                        'Giriş Yap',
+                        'Sign In',
                         style: TextStyle(
+                          fontSize: 14.sp,
                           color: AppConfig.primaryColor,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                ),
-
-                SizedBox(height: 32.h),
-
-                // Security Notice
-                Container(
-                  padding: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    color: AppConfig.infoColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: AppConfig.infoColor.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.security,
-                        color: AppConfig.infoColor,
-                        size: 20.sp,
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Text(
-                          'Bilgileriniz güvenli şekilde şifrelenerek saklanır.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppConfig.infoColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ),

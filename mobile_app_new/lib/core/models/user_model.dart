@@ -5,39 +5,39 @@ part 'user_model.g.dart';
 @JsonSerializable()
 class User {
   final String id;
+  final String name;
   final String email;
-  final String tcId;
-  final String firstName;
-  final String lastName;
+  final String? firstName;
+  final String? lastName;
   final String? phone;
+  final String? avatar;
   final bool isEmailVerified;
   final bool isMFASetup;
   final bool isActive;
-  final String role;
-  final String subscription;
+  final List<String> roles;
+  final List<String> permissions;
+  final UserProfile? profile;
+  final UserSession? session;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final DateTime? lastLogin;
-  final Map<String, dynamic>? preferences;
-  final List<String>? permissions;
 
   const User({
     required this.id,
+    required this.name,
     required this.email,
-    required this.tcId,
-    required this.firstName,
-    required this.lastName,
+    this.firstName,
+    this.lastName,
     this.phone,
-    required this.isEmailVerified,
-    required this.isMFASetup,
-    required this.isActive,
-    required this.role,
-    required this.subscription,
+    this.avatar,
+    this.isEmailVerified = false,
+    this.isMFASetup = false,
+    this.isActive = true,
+    this.roles = const [],
+    this.permissions = const [],
+    this.profile,
+    this.session,
     required this.createdAt,
     required this.updatedAt,
-    this.lastLogin,
-    this.preferences,
-    this.permissions,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -45,118 +45,83 @@ class User {
 
   User copyWith({
     String? id,
+    String? name,
     String? email,
-    String? tcId,
     String? firstName,
     String? lastName,
     String? phone,
+    String? avatar,
     bool? isEmailVerified,
     bool? isMFASetup,
     bool? isActive,
-    String? role,
-    String? subscription,
+    List<String>? roles,
+    List<String>? permissions,
+    UserProfile? profile,
+    UserSession? session,
     DateTime? createdAt,
     DateTime? updatedAt,
-    DateTime? lastLogin,
-    Map<String, dynamic>? preferences,
-    List<String>? permissions,
   }) {
     return User(
       id: id ?? this.id,
+      name: name ?? this.name,
       email: email ?? this.email,
-      tcId: tcId ?? this.tcId,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       phone: phone ?? this.phone,
+      avatar: avatar ?? this.avatar,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       isMFASetup: isMFASetup ?? this.isMFASetup,
       isActive: isActive ?? this.isActive,
-      role: role ?? this.role,
-      subscription: subscription ?? this.subscription,
+      roles: roles ?? this.roles,
+      permissions: permissions ?? this.permissions,
+      profile: profile ?? this.profile,
+      session: session ?? this.session,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      lastLogin: lastLogin ?? this.lastLogin,
-      preferences: preferences ?? this.preferences,
-      permissions: permissions ?? this.permissions,
     );
-  }
-
-  String get fullName => '$firstName $lastName';
-  String get displayName => firstName.isNotEmpty ? firstName : email;
-  bool get isPremium => subscription == 'premium';
-  bool get isAdmin => role == 'admin';
-  bool get isModerator => role == 'moderator';
-
-  bool hasPermission(String permission) {
-    return permissions?.contains(permission) ?? false;
-  }
-
-  bool hasAnyPermission(List<String> permissions) {
-    return permissions.any((permission) => hasPermission(permission));
-  }
-
-  bool hasAllPermissions(List<String> permissions) {
-    return permissions.every((permission) => hasPermission(permission));
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is User && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-
-  @override
-  String toString() {
-    return 'User(id: $id, email: $email, name: $fullName, role: $role)';
   }
 }
 
 @JsonSerializable()
 class UserProfile {
-  final String id;
-  final String firstName;
-  final String lastName;
-  final String? phone;
-  final String? avatar;
+  final String? bio;
+  final String? location;
+  final String? website;
+  final String? timezone;
+  final String? language;
   final Map<String, dynamic>? preferences;
-  final DateTime updatedAt;
+  final Map<String, dynamic>? settings;
 
   const UserProfile({
-    required this.id,
-    required this.firstName,
-    required this.lastName,
-    this.phone,
-    this.avatar,
+    this.bio,
+    this.location,
+    this.website,
+    this.timezone,
+    this.language,
     this.preferences,
-    required this.updatedAt,
+    this.settings,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => _$UserProfileFromJson(json);
   Map<String, dynamic> toJson() => _$UserProfileToJson(this);
 
-  String get fullName => '$firstName $lastName';
-  String get displayName => firstName.isNotEmpty ? firstName : 'User';
-
   UserProfile copyWith({
-    String? id,
-    String? firstName,
-    String? lastName,
-    String? phone,
-    String? avatar,
+    String? bio,
+    String? location,
+    String? website,
+    String? timezone,
+    String? language,
     Map<String, dynamic>? preferences,
-    DateTime? updatedAt,
+    Map<String, dynamic>? settings,
   }) {
     return UserProfile(
-      id: id ?? this.id,
-      firstName: firstName ?? this.firstName,
-      lastName: lastName ?? this.lastName,
-      phone: phone ?? this.phone,
-      avatar: avatar ?? this.avatar,
+      bio: bio ?? this.bio,
+      location: location ?? this.location,
+      website: website ?? this.website,
+      timezone: timezone ?? this.timezone,
+      language: language ?? this.language,
       preferences: preferences ?? this.preferences,
-      updatedAt: updatedAt ?? this.updatedAt,
+      settings: settings ?? this.settings,
     );
   }
 }
@@ -164,59 +129,59 @@ class UserProfile {
 @JsonSerializable()
 class UserSession {
   final String id;
-  final String userId;
   final String deviceId;
   final String deviceName;
   final String deviceType;
-  final String ipAddress;
-  final String userAgent;
-  final DateTime createdAt;
-  final DateTime expiresAt;
+  final String? ipAddress;
+  final String? userAgent;
+  final String? location;
   final bool isActive;
+  final DateTime lastActivity;
+  final DateTime createdAt;
+  final DateTime? expiresAt;
 
   const UserSession({
     required this.id,
-    required this.userId,
     required this.deviceId,
     required this.deviceName,
     required this.deviceType,
-    required this.ipAddress,
-    required this.userAgent,
+    this.ipAddress,
+    this.userAgent,
+    this.location,
+    this.isActive = true,
+    required this.lastActivity,
     required this.createdAt,
-    required this.expiresAt,
-    required this.isActive,
+    this.expiresAt,
   });
 
   factory UserSession.fromJson(Map<String, dynamic> json) => _$UserSessionFromJson(json);
   Map<String, dynamic> toJson() => _$UserSessionToJson(this);
 
-  bool get isExpired => DateTime.now().isAfter(expiresAt);
-  Duration get timeUntilExpiry => expiresAt.difference(DateTime.now());
-  bool get isExpiringSoon => timeUntilExpiry.inHours < 1;
-
   UserSession copyWith({
     String? id,
-    String? userId,
     String? deviceId,
     String? deviceName,
     String? deviceType,
     String? ipAddress,
     String? userAgent,
+    String? location,
+    bool? isActive,
+    DateTime? lastActivity,
     DateTime? createdAt,
     DateTime? expiresAt,
-    bool? isActive,
   }) {
     return UserSession(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
       deviceId: deviceId ?? this.deviceId,
       deviceName: deviceName ?? this.deviceName,
       deviceType: deviceType ?? this.deviceType,
       ipAddress: ipAddress ?? this.ipAddress,
       userAgent: userAgent ?? this.userAgent,
+      location: location ?? this.location,
+      isActive: isActive ?? this.isActive,
+      lastActivity: lastActivity ?? this.lastActivity,
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
-      isActive: isActive ?? this.isActive,
     );
   }
 }

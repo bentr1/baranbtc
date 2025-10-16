@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app/app.dart';
 import 'core/config/app_config.dart';
+import 'core/config/firebase_config.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/local_storage_service.dart';
 import 'core/services/security_service.dart';
@@ -23,10 +24,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp();
-
-  // Set background message handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await FirebaseConfig.initialize();
 
   // Initialize Hive
   await Hive.initFlutter();

@@ -2,83 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/config/app_config.dart';
-import 'custom_button.dart';
 
 class EmptyStateWidget extends StatelessWidget {
+  final String message;
   final String? title;
-  final String? message;
   final IconData? icon;
-  final Color? iconColor;
-  final String? actionText;
   final VoidCallback? onAction;
-  final bool showActionButton;
+  final String? actionText;
 
   const EmptyStateWidget({
     super.key,
+    required this.message,
     this.title,
-    this.message,
     this.icon,
-    this.iconColor,
-    this.actionText,
     this.onAction,
-    this.showActionButton = false,
+    this.actionText,
   });
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(AppConfig.defaultPadding),
+        padding: EdgeInsets.all(AppConfig.defaultPadding.w),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Empty State Icon
             Icon(
               icon ?? Icons.inbox_outlined,
-              size: 80.w,
-              color: iconColor ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              size: 64.w,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
             ),
             
-            SizedBox(height: 24.h),
+            SizedBox(height: 16.h),
             
-            // Empty State Title
             if (title != null) ...[
               Text(
                 title!,
                 style: TextStyle(
                   fontSize: 20.sp,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onSurface,
-                  textAlign: TextAlign.center,
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 8.h),
             ],
             
-            // Empty State Message
-            if (message != null) ...[
-              Text(
-                message!,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  textAlign: TextAlign.center,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
+              textAlign: TextAlign.center,
+            ),
+            
+            if (onAction != null && actionText != null) ...[
               SizedBox(height: 24.h),
-            ],
-            
-            // Action Button
-            if (showActionButton && actionText != null && onAction != null)
-              CustomButton(
-                text: actionText!,
+              ElevatedButton(
                 onPressed: onAction,
-                type: ButtonType.outline,
-                size: ButtonSize.medium,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppConfig.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(actionText!),
               ),
+            ],
           ],
         ),
       ),

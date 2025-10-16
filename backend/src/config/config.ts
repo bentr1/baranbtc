@@ -31,7 +31,17 @@ export const config = {
   // Allowed origins for CORS
   allowedOrigins: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',') 
-    : ['http://localhost:3000', 'http://localhost:8080'],
+    : [
+        'https://btc.nazlihw.com', 
+        'http://localhost:3000', 
+        'http://localhost:8080',
+        'http://185.8.129.67:3000',
+        // Mobile app origins
+        'capacitor://localhost',
+        'ionic://localhost',
+        'http://localhost',
+        'https://localhost'
+      ],
   
   // Database configuration
   database: {
@@ -66,25 +76,26 @@ export const config = {
   
   // Email configuration (for user activation)
   email: {
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    host: process.env.EMAIL_HOST || 'mail.nazlihw.com',
     port: parseInt(process.env.EMAIL_PORT || '587', 10),
     secure: process.env.EMAIL_SECURE === 'true',
-    user: process.env.EMAIL_USER || '',
-    password: process.env.EMAIL_PASSWORD || '',
-    from: process.env.EMAIL_FROM || 'noreply@btcbaran.com'
+    user: process.env.EMAIL_USER || 'btcbaran@nazlihw.com',
+    password: process.env.EMAIL_PASSWORD || 'BaranBtc123*',
+    from: process.env.EMAIL_FROM || 'noreply@nazlihw.com'
   },
   
   // Firebase configuration (for push notifications)
   firebase: {
-    projectId: process.env.FIREBASE_PROJECT_ID || '',
+    projectId: process.env.FIREBASE_PROJECT_ID || 'btcbaran-c7334',
     privateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID || '',
     privateKey: process.env.FIREBASE_PRIVATE_KEY || '',
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk@btcbaran-c7334.iam.gserviceaccount.com',
     clientId: process.env.FIREBASE_CLIENT_ID || '',
     authUri: process.env.FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
     tokenUri: process.env.FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
     authProviderX509CertUrl: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
-    clientX509CertUrl: process.env.FIREBASE_CLIENT_X509_CERT_URL || ''
+    clientX509CertUrl: process.env.FIREBASE_CLIENT_X509_CERT_URL || '',
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '78955542733'
   },
   
   // Security settings

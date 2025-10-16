@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_card.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../../app/widgets/common/custom_card.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../app/providers/auth/auth_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -19,344 +18,314 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _notificationsEnabled = true;
   bool _biometricEnabled = false;
   bool _darkModeEnabled = false;
-  String _selectedLanguage = 'tr';
-  String _selectedCurrency = 'USD';
-
-  final List<String> _languages = ['tr', 'en', 'fr', 'de'];
-  final List<String> _currencies = ['USD', 'EUR', 'TRY', 'BTC'];
+  String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ayarlar'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile Section
-            _buildSectionTitle('Profil'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildProfileItem(
-                    icon: Icons.person,
-                    title: 'Profil Bilgileri',
-                    subtitle: 'Kişisel bilgilerinizi düzenleyin',
-                    onTap: () => context.go('/profile'),
-                  ),
-                  _buildDivider(),
-                  _buildProfileItem(
-                    icon: Icons.security,
-                    title: 'Güvenlik',
-                    subtitle: 'Şifre ve 2FA ayarları',
-                    onTap: () => _openSecuritySettings(),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // App Settings
-            _buildSectionTitle('Uygulama Ayarları'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildSwitchItem(
-                    icon: Icons.notifications,
-                    title: 'Bildirimler',
-                    subtitle: 'Push bildirimlerini al',
-                    value: _notificationsEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _notificationsEnabled = value;
-                      });
-                    },
-                  ),
-                  _buildDivider(),
-                  _buildSwitchItem(
-                    icon: Icons.fingerprint,
-                    title: 'Biyometrik Giriş',
-                    subtitle: 'Parmak izi ile giriş yap',
-                    value: _biometricEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _biometricEnabled = value;
-                      });
-                    },
-                  ),
-                  _buildDivider(),
-                  _buildSwitchItem(
-                    icon: Icons.dark_mode,
-                    title: 'Karanlık Mod',
-                    subtitle: 'Karanlık tema kullan',
-                    value: _darkModeEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _darkModeEnabled = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // Language and Currency
-            _buildSectionTitle('Dil ve Para Birimi'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildDropdownItem(
-                    icon: Icons.language,
-                    title: 'Dil',
-                    subtitle: 'Uygulama dilini seçin',
-                    value: _selectedLanguage,
-                    items: _languages,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedLanguage = value!;
-                      });
-                    },
-                  ),
-                  _buildDivider(),
-                  _buildDropdownItem(
-                    icon: Icons.attach_money,
-                    title: 'Para Birimi',
-                    subtitle: 'Varsayılan para birimi',
-                    value: _selectedCurrency,
-                    items: _currencies,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCurrency = value!;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // Data and Storage
-            _buildSectionTitle('Veri ve Depolama'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildProfileItem(
-                    icon: Icons.storage,
-                    title: 'Önbellek Temizle',
-                    subtitle: 'Geçici dosyaları sil',
-                    onTap: _clearCache,
-                  ),
-                  _buildDivider(),
-                  _buildProfileItem(
-                    icon: Icons.download,
-                    title: 'Veri İndir',
-                    subtitle: 'Hesap verilerinizi indirin',
-                    onTap: _downloadData,
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // Support
-            _buildSectionTitle('Destek'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildProfileItem(
-                    icon: Icons.help,
-                    title: 'Yardım',
-                    subtitle: 'Sık sorulan sorular',
-                    onTap: _openHelp,
-                  ),
-                  _buildDivider(),
-                  _buildProfileItem(
-                    icon: Icons.contact_support,
-                    title: 'İletişim',
-                    subtitle: 'Müşteri hizmetleri',
-                    onTap: _openContact,
-                  ),
-                  _buildDivider(),
-                  _buildProfileItem(
-                    icon: Icons.info,
-                    title: 'Hakkında',
-                    subtitle: 'Uygulama bilgileri',
-                    onTap: _openAbout,
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 24.h),
-
-            // Account Actions
-            _buildSectionTitle('Hesap İşlemleri'),
-            CustomCard(
-              child: Column(
-                children: [
-                  _buildProfileItem(
-                    icon: Icons.logout,
-                    title: 'Çıkış Yap',
-                    subtitle: 'Hesabınızdan çıkış yapın',
-                    onTap: _logout,
-                    textColor: AppConfig.warningColor,
-                  ),
-                  _buildDivider(),
-                  _buildProfileItem(
-                    icon: Icons.delete,
-                    title: 'Hesabı Sil',
-                    subtitle: 'Hesabınızı kalıcı olarak silin',
-                    onTap: _deleteAccount,
-                    textColor: AppConfig.errorColor,
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 32.h),
-
-            // App Version
-            Center(
-              child: Text(
-                'Versiyon ${AppConfig.appVersion}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
+          ),
         ),
+        leading: IconButton(
+          onPressed: () => context.pop(),
+          icon: Icon(Icons.arrow_back),
+        ),
+      ),
+      body: ListView(
+        padding: EdgeInsets.all(16.w),
+        children: [
+          // Account Settings
+          _buildSectionTitle('Account'),
+          _buildAccountSection(),
+          
+          SizedBox(height: 24.h),
+          
+          // App Settings
+          _buildSectionTitle('App Settings'),
+          _buildAppSettingsSection(),
+          
+          SizedBox(height: 24.h),
+          
+          // Security Settings
+          _buildSectionTitle('Security'),
+          _buildSecuritySection(),
+          
+          SizedBox(height: 24.h),
+          
+          // About
+          _buildSectionTitle('About'),
+          _buildAboutSection(),
+          
+          SizedBox(height: 24.h),
+          
+          // Logout
+          _buildLogoutSection(),
+        ],
       ),
     );
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 16.h),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
+        style: TextStyle(
+          fontSize: 18.sp,
+          fontWeight: FontWeight.w600,
           color: AppConfig.primaryColor,
         ),
       ),
     );
   }
 
-  Widget _buildProfileItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    Color? textColor,
-  }) {
-    final theme = Theme.of(context);
-    
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 12.h),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 24.sp,
-              color: textColor ?? AppConfig.primaryColor,
-            ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: textColor ?? theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 20.sp,
-              color: theme.colorScheme.onSurface.withOpacity(0.4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: Row(
+  Widget _buildAccountSection() {
+    return CustomCard(
+      child: Column(
         children: [
-          Icon(
-            icon,
-            size: 24.sp,
-            color: AppConfig.primaryColor,
+          _buildSettingTile(
+            icon: Icons.person,
+            title: 'Profile',
+            subtitle: 'Manage your profile information',
+            onTap: () => context.go('/profile'),
           ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.email,
+            title: 'Email Verification',
+            subtitle: 'Verify your email address',
+            onTap: () => context.go('/email-verification'),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: AppConfig.primaryColor,
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.security,
+            title: 'Two-Factor Authentication',
+            subtitle: 'Add extra security to your account',
+            onTap: () => context.go('/mfa-setup'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownItem({
+  Widget _buildAppSettingsSection() {
+    return CustomCard(
+      child: Column(
+        children: [
+          _buildSwitchTile(
+            icon: Icons.notifications,
+            title: 'Push Notifications',
+            subtitle: 'Receive push notifications',
+            value: _notificationsEnabled,
+            onChanged: (value) {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+            },
+          ),
+          Divider(),
+          _buildSwitchTile(
+            icon: Icons.dark_mode,
+            title: 'Dark Mode',
+            subtitle: 'Use dark theme',
+            value: _darkModeEnabled,
+            onChanged: (value) {
+              setState(() {
+                _darkModeEnabled = value;
+              });
+            },
+          ),
+          Divider(),
+          _buildDropdownTile(
+            icon: Icons.language,
+            title: 'Language',
+            subtitle: 'Select your preferred language',
+            value: _selectedLanguage,
+            items: ['English', 'Turkish', 'French', 'German'],
+            onChanged: (value) {
+              setState(() {
+                _selectedLanguage = value!;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecuritySection() {
+    return CustomCard(
+      child: Column(
+        children: [
+          _buildSwitchTile(
+            icon: Icons.fingerprint,
+            title: 'Biometric Authentication',
+            subtitle: 'Use fingerprint or face ID',
+            value: _biometricEnabled,
+            onChanged: (value) {
+              setState(() {
+                _biometricEnabled = value;
+              });
+            },
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.lock,
+            title: 'Change Password',
+            subtitle: 'Update your account password',
+            onTap: () => _showChangePasswordDialog(),
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.devices,
+            title: 'Active Sessions',
+            subtitle: 'Manage your active sessions',
+            onTap: () => _showActiveSessions(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutSection() {
+    return CustomCard(
+      child: Column(
+        children: [
+          _buildSettingTile(
+            icon: Icons.info,
+            title: 'App Version',
+            subtitle: 'Version ${AppConfig.appVersion}',
+            onTap: null,
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.help,
+            title: 'Help & Support',
+            subtitle: 'Get help and contact support',
+            onTap: () => _showHelpSupport(),
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.privacy_tip,
+            title: 'Privacy Policy',
+            subtitle: 'Read our privacy policy',
+            onTap: () => _showPrivacyPolicy(),
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.description,
+            title: 'Terms of Service',
+            subtitle: 'Read our terms of service',
+            onTap: () => _showTermsOfService(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogoutSection() {
+    return CustomCard(
+      child: Column(
+        children: [
+          _buildSettingTile(
+            icon: Icons.logout,
+            title: 'Logout',
+            subtitle: 'Sign out of your account',
+            onTap: () => _showLogoutDialog(),
+            textColor: AppConfig.errorColor,
+          ),
+          Divider(),
+          _buildSettingTile(
+            icon: Icons.delete_forever,
+            title: 'Delete Account',
+            subtitle: 'Permanently delete your account',
+            onTap: () => _showDeleteAccountDialog(),
+            textColor: AppConfig.errorColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    Color? textColor,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: textColor ?? AppConfig.primaryColor,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w600,
+          color: textColor ?? AppConfig.primaryColor,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.grey[600],
+        ),
+      ),
+      trailing: onTap != null
+          ? Icon(
+              Icons.arrow_forward_ios,
+              size: 16.w,
+              color: Colors.grey[400],
+            )
+          : null,
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: AppConfig.primaryColor,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w600,
+          color: AppConfig.primaryColor,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.grey[600],
+        ),
+      ),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: AppConfig.primaryColor,
+      ),
+    );
+  }
+
+  Widget _buildDropdownTile({
     required IconData icon,
     required String title,
     required String subtitle,
@@ -364,157 +333,161 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 24.sp,
-            color: AppConfig.primaryColor,
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          DropdownButton<String>(
-            value: value,
-            onChanged: onChanged,
-            underline: const SizedBox(),
-            items: items.map((item) {
-              return DropdownMenuItem(
-                value: item,
-                child: Text(item.toUpperCase()),
-              );
-            }).toList(),
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: AppConfig.primaryColor,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w600,
+          color: AppConfig.primaryColor,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: Colors.grey[600],
+        ),
+      ),
+      trailing: DropdownButton<String>(
+        value: value,
+        onChanged: onChanged,
+        underline: SizedBox(),
+        items: items.map((item) {
+          return DropdownMenuItem(
+            value: item,
+            child: Text(item),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Change Password'),
+        content: Text('This feature will be implemented soon.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      color: Theme.of(context).dividerColor.withOpacity(0.3),
-    );
-  }
-
-  void _openSecuritySettings() {
-    // TODO: Navigate to security settings
-  }
-
-  void _clearCache() {
+  void _showActiveSessions() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Önbellek Temizle'),
-        content: const Text('Geçici dosyalar silinecek. Devam etmek istiyor musunuz?'),
+        title: Text('Active Sessions'),
+        content: Text('This feature will be implemented soon.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Clear cache
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Önbellek temizlendi')),
-              );
-            },
-            child: const Text('Temizle'),
+            child: Text('OK'),
           ),
         ],
       ),
     );
   }
 
-  void _downloadData() {
-    // TODO: Implement data download
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Veri indirme başlatıldı')),
-    );
-  }
-
-  void _openHelp() {
-    // TODO: Navigate to help page
-  }
-
-  void _openContact() {
-    // TODO: Navigate to contact page
-  }
-
-  void _openAbout() {
-    showAboutDialog(
-      context: context,
-      applicationName: AppConfig.appName,
-      applicationVersion: AppConfig.appVersion,
-      applicationLegalese: '© 2024 BTC Baran. Tüm hakları saklıdır.',
-    );
-  }
-
-  void _logout() {
+  void _showHelpSupport() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Çıkış Yap'),
-        content: const Text('Hesabınızdan çıkış yapmak istediğinizden emin misiniz?'),
+        title: Text('Help & Support'),
+        content: Text('This feature will be implemented soon.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Privacy Policy'),
+        content: Text('This feature will be implemented soon.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTermsOfService() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Terms of Service'),
+        content: Text('This feature will be implemented soon.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Logout'),
+        content: Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement logout
+              ref.read(authProvider.notifier).logout();
               context.go('/login');
             },
-            child: const Text('Çıkış Yap'),
+            child: Text('Logout'),
           ),
         ],
       ),
     );
   }
 
-  void _deleteAccount() {
+  void _showDeleteAccountDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hesabı Sil'),
-        content: const Text('Hesabınız kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?'),
+        title: Text('Delete Account'),
+        content: Text('Are you sure you want to permanently delete your account? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement account deletion
-              context.go('/login');
+              // Implement delete account logic
             },
-            child: const Text('Sil'),
+            child: Text('Delete', style: TextStyle(color: AppConfig.errorColor)),
           ),
         ],
       ),

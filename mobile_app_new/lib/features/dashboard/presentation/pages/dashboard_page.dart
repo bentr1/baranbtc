@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_card.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
-import '../../../../shared/widgets/empty_state_widget.dart';
+import '../../../../app/widgets/common/custom_card.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../app/providers/auth/auth_provider.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -16,373 +14,533 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-  bool _isLoading = true;
-  String? _errorMessage;
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  int _selectedIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadDashboardData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadDashboardData() async {
-    // Simulate loading
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
+  final List<Widget> _pages = [
+    const _HomeTab(),
+    const _CryptoTab(),
+    const _AnalysisTab(),
+    const _NotificationsTab(),
+    const _ProfileTab(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: LoadingIndicator(
-            message: 'Dashboard yükleniyor...',
+    return Scaffold(
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        selectedItemColor: AppConfig.primaryColor,
+        unselectedItemColor: Colors.grey[600],
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
           ),
-        ),
-      );
-    }
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up),
+            label: 'Crypto',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Analysis',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Alerts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeTab extends ConsumerWidget {
+  const _HomeTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
 
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 200.h,
-              floating: false,
-              pinned: true,
-              backgroundColor: AppConfig.primaryColor,
-              flexibleSpace: FlexibleSpaceBar(
-                title: const Text(
-                  'BTC Baran',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppConfig.primaryColor,
-                        AppConfig.secondaryColor,
+      appBar: AppBar(
+        title: Text(
+          'Welcome, ${user?.name ?? 'User'}',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => context.go('/settings'),
+            icon: Icon(Icons.settings),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Quick Stats
+            Text(
+              'Quick Stats',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                color: AppConfig.primaryColor,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomCard(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.trending_up,
+                          size: 32.w,
+                          color: AppConfig.successColor,
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Active Alerts',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          '12',
+                          style: TextStyle(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppConfig.primaryColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: 40.h),
-                      Icon(
-                        Icons.trending_up,
-                        size: 60.sp,
-                        color: Colors.white,
-                      ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Kripto Piyasalarını Takip Edin',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: CustomCard(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.analytics,
+                          size: 32.w,
+                          color: AppConfig.infoColor,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Analyses',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          '8',
+                          style: TextStyle(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppConfig.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  onPressed: () => context.go('/notifications'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () => context.go('/settings'),
                 ),
               ],
             ),
-          ];
-        },
-        body: Column(
-          children: [
-            // Tab Bar
-            Container(
-              color: theme.colorScheme.surface,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppConfig.primaryColor,
-                unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
-                indicatorColor: AppConfig.primaryColor,
-                tabs: const [
-                  Tab(text: 'Genel Bakış'),
-                  Tab(text: 'Kripto Paralar'),
-                  Tab(text: 'Analizler'),
+            
+            SizedBox(height: 24.h),
+            
+            // Recent Activity
+            Text(
+              'Recent Activity',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                color: AppConfig.primaryColor,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            CustomCard(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.notifications, color: AppConfig.successColor),
+                    title: Text('BTC Price Alert Triggered'),
+                    subtitle: Text('2 hours ago'),
+                    trailing: Text('+5.2%', style: TextStyle(color: AppConfig.successColor)),
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.analytics, color: AppConfig.infoColor),
+                    title: Text('ETH Technical Analysis Updated'),
+                    subtitle: Text('4 hours ago'),
+                    trailing: Text('Bullish', style: TextStyle(color: AppConfig.successColor)),
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.trending_up, color: AppConfig.warningColor),
+                    title: Text('ADA Support Level Reached'),
+                    subtitle: Text('6 hours ago'),
+                    trailing: Text('$0.45', style: TextStyle(color: AppConfig.primaryColor)),
+                  ),
                 ],
               ),
             ),
-
-            // Tab Views
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildOverviewTab(),
-                  _buildCryptoTab(),
-                  _buildAnalysisTab(),
-                ],
+            
+            SizedBox(height: 24.h),
+            
+            // Quick Actions
+            Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                color: AppConfig.primaryColor,
               ),
+            ),
+            SizedBox(height: 16.h),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomCard(
+                    onTap: () => context.go('/crypto'),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.trending_up,
+                          size: 32.w,
+                          color: AppConfig.primaryColor,
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'View Crypto',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: CustomCard(
+                    onTap: () => context.go('/analysis'),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.analytics,
+                          size: 32.w,
+                          color: AppConfig.secondaryColor,
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Analysis',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: CustomCard(
+                    onTap: () => context.go('/notifications'),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.notifications,
+                          size: 32.w,
+                          color: AppConfig.accentColor,
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Alerts',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppConfig.primaryColor,
-        unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.6),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: 'Ana Sayfa',
+    );
+  }
+}
+
+class _CryptoTab extends StatelessWidget {
+  const _CryptoTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Crypto Markets',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.currency_bitcoin_outlined),
-            activeIcon: Icon(Icons.currency_bitcoin),
-            label: 'Kripto',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics_outlined),
-            activeIcon: Icon(Icons.analytics),
-            label: 'Analiz',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
-            activeIcon: Icon(Icons.notifications),
-            label: 'Bildirimler',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outlined),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => context.go('/crypto'),
+            icon: Icon(Icons.more_horiz),
           ),
         ],
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on dashboard
-              break;
-            case 1:
-              context.go('/crypto');
-              break;
-            case 2:
-              context.go('/analysis/BTCUSDT');
-              break;
-            case 3:
-              context.go('/notifications');
-              break;
-            case 4:
-              context.go('/profile');
-              break;
-          }
-        },
       ),
-    );
-  }
-
-  Widget _buildOverviewTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Market Summary
-          Text(
-            'Piyasa Özeti',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.trending_up,
+              size: 64.w,
+              color: AppConfig.primaryColor,
             ),
-          ),
-          SizedBox(height: 16.h),
-          
-          // Market Cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildMarketCard(
-                  'Toplam Piyasa Değeri',
-                  '\$2.1T',
-                  '+2.5%',
-                  true,
-                  Icons.trending_up,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _buildMarketCard(
-                  '24s Hacim',
-                  '\$45.2B',
-                  '+1.8%',
-                  true,
-                  Icons.bar_chart,
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Top Cryptos
-          Text(
-            'Popüler Kripto Paralar',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          // Crypto List
-          _buildCryptoList(),
-
-          SizedBox(height: 24.h),
-
-          // Quick Actions
-          Text(
-            'Hızlı İşlemler',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          _buildQuickActions(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCryptoTab() {
-    return const Center(
-      child: Text('Kripto Paralar sayfası'),
-    );
-  }
-
-  Widget _buildAnalysisTab() {
-    return const Center(
-      child: Text('Analizler sayfası'),
-    );
-  }
-
-  Widget _buildMarketCard(String title, String value, String change, bool isPositive, IconData icon) {
-    final theme = Theme.of(context);
-    
-    return CustomCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 20.sp,
+            SizedBox(height: 16.h),
+            Text(
+              'Crypto Markets',
+              style: TextStyle(
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
                 color: AppConfig.primaryColor,
               ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'View detailed crypto market data',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
               ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            value,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
             ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            change,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: isPositive ? AppConfig.bullishColor : AppConfig.bearishColor,
-              fontWeight: FontWeight.w500,
+            SizedBox(height: 24.h),
+            ElevatedButton(
+              onPressed: () => context.go('/crypto'),
+              child: Text('View All Crypto'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildCryptoList() {
-    final cryptos = [
-      {'symbol': 'BTC', 'name': 'Bitcoin', 'price': 43250.50, 'change': 2.5},
-      {'symbol': 'ETH', 'name': 'Ethereum', 'price': 2650.30, 'change': 1.8},
-      {'symbol': 'BNB', 'name': 'Binance Coin', 'price': 315.20, 'change': -0.5},
-      {'symbol': 'ADA', 'name': 'Cardano', 'price': 0.45, 'change': 3.2},
-    ];
+class _AnalysisTab extends StatelessWidget {
+  const _AnalysisTab();
 
-    return Column(
-      children: cryptos.map((crypto) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 12.h),
-          child: CryptoCard(
-            symbol: crypto['symbol'] as String,
-            name: crypto['name'] as String,
-            price: crypto['price'] as double,
-            change24h: (crypto['price'] as double) * (crypto['change'] as double) / 100,
-            changePercent24h: crypto['change'] as double,
-            onTap: () => context.go('/crypto/${crypto['symbol']}'),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Technical Analysis',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
           ),
-        );
-      }).toList(),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => context.go('/analysis'),
+            icon: Icon(Icons.more_horiz),
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.analytics,
+              size: 64.w,
+              color: AppConfig.secondaryColor,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Technical Analysis',
+              style: TextStyle(
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
+                color: AppConfig.secondaryColor,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Advanced technical analysis tools',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 24.h),
+            ElevatedButton(
+              onPressed: () => context.go('/analysis'),
+              child: Text('View Analysis'),
+            ),
+          ],
+        ),
+      ),
     );
   }
+}
 
-  Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: CustomButton(
-            text: 'Fiyat Uyarısı',
-            icon: Icons.notifications,
-            type: ButtonType.outline,
+class _NotificationsTab extends StatelessWidget {
+  const _NotificationsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Notifications',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          IconButton(
             onPressed: () => context.go('/notifications'),
+            icon: Icon(Icons.more_horiz),
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.notifications,
+              size: 64.w,
+              color: AppConfig.accentColor,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Notifications',
+              style: TextStyle(
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
+                color: AppConfig.accentColor,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Manage your alerts and notifications',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 24.h),
+            ElevatedButton(
+              onPressed: () => context.go('/notifications'),
+              child: Text('View All Notifications'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTab extends ConsumerWidget {
+  const _ProfileTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: CustomButton(
-            text: 'Teknik Analiz',
-            icon: Icons.analytics,
-            type: ButtonType.outline,
-            onPressed: () => context.go('/analysis/BTCUSDT'),
+        actions: [
+          IconButton(
+            onPressed: () => context.go('/settings'),
+            icon: Icon(Icons.settings),
           ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 50.w,
+              backgroundColor: AppConfig.primaryColor,
+              child: Text(
+                user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                style: TextStyle(
+                  fontSize: 32.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              user?.name ?? 'User',
+              style: TextStyle(
+                fontSize: 24.sp,
+                fontWeight: FontWeight.bold,
+                color: AppConfig.primaryColor,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              user?.email ?? 'user@example.com',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 24.h),
+            ElevatedButton(
+              onPressed: () => context.go('/profile'),
+              child: Text('View Full Profile'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

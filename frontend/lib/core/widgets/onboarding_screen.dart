@@ -157,7 +157,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               fontSize: 28.sp,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).colorScheme.onBackground,
-              textAlign: TextAlign.center,
             ),
             textAlign: TextAlign.center,
           ),
@@ -170,7 +169,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: TextStyle(
               fontSize: 16.sp,
               color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-              textAlign: TextAlign.center,
               height: 1.5,
             ),
             textAlign: TextAlign.center,

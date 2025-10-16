@@ -66,6 +66,7 @@ class AuthService {
   static Future<User> login({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
@@ -99,21 +100,17 @@ class AuthService {
 
   // Register
   static Future<User> register({
+    required String name,
     required String email,
     required String password,
-    required String tcId,
-    required String firstName,
-    required String lastName,
   }) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
       
       final response = await ApiService.post('/auth/register', {
+        'name': name,
         'email': email,
         'password': _hashPassword(password),
-        'tcId': tcId,
-        'firstName': firstName,
-        'lastName': lastName,
         'deviceId': deviceId,
         'deviceName': await _getDeviceName(),
         'deviceType': Platform.isIOS ? 'ios' : 'android',
@@ -199,10 +196,10 @@ class AuthService {
   }
 
   // Verify email
-  static Future<void> verifyEmail(String token) async {
+  static Future<void> verifyEmail(String code) async {
     try {
       final response = await ApiService.post('/auth/verify-email', {
-        'token': token,
+        'code': code,
       });
 
       if (!response['success']) {
@@ -210,6 +207,19 @@ class AuthService {
       }
     } catch (e) {
       throw Exception('Email verification failed: ${e.toString()}');
+    }
+  }
+
+  // Resend verification code
+  static Future<void> resendVerificationCode() async {
+    try {
+      final response = await ApiService.post('/auth/resend-verification', {});
+
+      if (!response['success']) {
+        throw Exception(response['message'] ?? 'Failed to resend verification code');
+      }
+    } catch (e) {
+      throw Exception('Failed to resend verification code: ${e.toString()}');
     }
   }
 
@@ -247,18 +257,36 @@ class AuthService {
     }
   }
 
-  // Setup MFA
-  static Future<String> setupMFA() async {
+  // Generate MFA secret
+  static Future<Map<String, String>> generateMFASecret() async {
     try {
       final response = await ApiService.post('/auth/mfa/setup', {});
 
       if (response['success']) {
-        return response['data']['secret'];
+        return {
+          'secret': response['data']['secret'],
+          'qrCode': response['data']['qrCode'],
+        };
       } else {
-        throw Exception(response['message'] ?? 'MFA setup failed');
+        throw Exception(response['message'] ?? 'Failed to generate MFA secret');
       }
     } catch (e) {
-      throw Exception('MFA setup failed: ${e.toString()}');
+      throw Exception('Failed to generate MFA secret: ${e.toString()}');
+    }
+  }
+
+  // Verify MFA setup
+  static Future<void> verifyMFASetup(String code) async {
+    try {
+      final response = await ApiService.post('/auth/mfa/verify-setup', {
+        'code': code,
+      });
+
+      if (!response['success']) {
+        throw Exception(response['message'] ?? 'MFA setup verification failed');
+      }
+    } catch (e) {
+      throw Exception('MFA setup verification failed: ${e.toString()}');
     }
   }
 
@@ -274,6 +302,34 @@ class AuthService {
       }
     } catch (e) {
       throw Exception('MFA verification failed: ${e.toString()}');
+    }
+  }
+
+  // Biometric login
+  static Future<User> biometricLogin() async {
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      
+      final response = await ApiService.post('/auth/biometric-login', {
+        'deviceId': deviceId,
+      });
+
+      if (response['success']) {
+        final user = User.fromJson(response['data']['user']);
+        final token = response['data']['token'];
+        final refreshToken = response['data']['refreshToken'];
+
+        // Store tokens and user data
+        await _storage.write(key: _authTokenKey, value: token);
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+        await _storage.write(key: _userDataKey, value: jsonEncode(user.toJson()));
+
+        return user;
+      } else {
+        throw Exception(response['message'] ?? 'Biometric login failed');
+      }
+    } catch (e) {
+      throw Exception('Biometric login failed: ${e.toString()}');
     }
   }
 

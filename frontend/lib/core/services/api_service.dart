@@ -143,8 +143,8 @@ class ApiService {
 
   // POST request
   static Future<Map<String, dynamic>> post(
-    String path, {
-    dynamic data,
+    String path,
+    dynamic data, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
@@ -172,8 +172,8 @@ class ApiService {
 
   // PUT request
   static Future<Map<String, dynamic>> put(
-    String path, {
-    dynamic data,
+    String path,
+    dynamic data, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,

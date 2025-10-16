@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "78955542733",
+    "project_id": "btcbaran-c7334",
+    "storage_bucket": "btcbaran-c7334.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:78955542733:android:81201a5f6b578f2fc65184",
+        "android_client_info": {
+          "package_name": "com.bozkilinc.btcbaran"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMendfBjnBRqxzV9bB--qVvQv3lg-VQMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

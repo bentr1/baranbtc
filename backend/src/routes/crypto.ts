@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger, securityLogger } from '../utils/logger';
 import { i18n } from '../utils/i18n';
+import { binanceService } from '../services/binanceService';
 
 const router = Router();
 
@@ -19,43 +20,14 @@ router.get('/pairs', asyncHandler(async (req, res) => {
       requestId: req.requestId
     });
     
-    // TODO: Implement crypto pairs logic
-    // - Fetch active trading pairs from database
-    // - Return pair list with metadata
+    // Fetch popular trading pairs from Binance
+    const pairs = await binanceService.getPopularPairs();
     
     const response = {
       success: true,
       message: 'Crypto pairs retrieved successfully',
       data: {
-        pairs: [
-          {
-            symbol: 'BTCUSDT',
-            baseAsset: 'BTC',
-            quoteAsset: 'USDT',
-            isActive: true,
-            lastPrice: 45000.00,
-            volume24h: 1000000.00,
-            priceChange24h: 2.5
-          },
-          {
-            symbol: 'ETHUSDT',
-            baseAsset: 'ETH',
-            quoteAsset: 'USDT',
-            isActive: true,
-            lastPrice: 3000.00,
-            volume24h: 500000.00,
-            priceChange24h: -1.2
-          },
-          {
-            symbol: 'BNBUSDT',
-            baseAsset: 'BNB',
-            quoteAsset: 'USDT',
-            isActive: true,
-            lastPrice: 350.00,
-            volume24h: 200000.00,
-            priceChange24h: 0.8
-          }
-        ]
+        pairs
       }
     };
     
@@ -93,10 +65,9 @@ router.get('/candles/:symbol', asyncHandler(async (req, res) => {
       requestId: req.requestId
     });
     
-    // TODO: Implement candlestick data logic
-    // - Validate symbol and interval
-    // - Fetch data from TimescaleDB
-    // - Return OHLCV data
+    // Fetch candlestick data from Binance
+    const klines = await binanceService.getKlines(symbol, interval as string, limit as number);
+    const candles = klines.map(kline => binanceService.formatKlineData(kline));
     
     const response = {
       success: true,
@@ -104,24 +75,7 @@ router.get('/candles/:symbol', asyncHandler(async (req, res) => {
       data: {
         symbol,
         interval,
-        candles: [
-          {
-            time: new Date('2024-01-01').toISOString(),
-            open: 45000.00,
-            high: 45500.00,
-            low: 44800.00,
-            close: 45200.00,
-            volume: 1000.00
-          },
-          {
-            time: new Date('2024-01-02').toISOString(),
-            open: 45200.00,
-            high: 45800.00,
-            low: 45000.00,
-            close: 45600.00,
-            volume: 1200.00
-          }
-        ]
+        candles
       }
     };
     
@@ -158,19 +112,23 @@ router.get('/price/:symbol', asyncHandler(async (req, res) => {
       requestId: req.requestId
     });
     
-    // TODO: Implement real-time price logic
-    // - Get latest price from cache/database
-    // - Return current price with timestamp
+    // Get real-time price from Binance
+    const currentPrice = await binanceService.getCurrentPrice(symbol);
+    const tickerData = await binanceService.get24hrTicker(symbol);
+    const ticker = tickerData[0];
     
     const response = {
       success: true,
       message: 'Real-time price retrieved successfully',
       data: {
         symbol,
-        price: 45000.00,
+        price: parseFloat(currentPrice.price),
         timestamp: new Date().toISOString(),
-        change24h: 2.5,
-        volume24h: 1000000.00
+        change24h: parseFloat(ticker.priceChange),
+        changePercent24h: parseFloat(ticker.priceChangePercent),
+        volume24h: parseFloat(ticker.volume),
+        high24h: parseFloat(ticker.highPrice),
+        low24h: parseFloat(ticker.lowPrice)
       }
     };
     
@@ -205,29 +163,13 @@ router.get('/market-overview', asyncHandler(async (req, res) => {
       requestId: req.requestId
     });
     
-    // TODO: Implement market overview logic
-    // - Calculate market statistics
-    // - Get top gainers/losers
-    // - Return market summary
+    // Get market overview from Binance
+    const marketOverview = await binanceService.getMarketOverview();
     
     const response = {
       success: true,
       message: 'Market overview retrieved successfully',
-      data: {
-        totalMarketCap: 2500000000000,
-        totalVolume24h: 50000000000,
-        btcDominance: 45.2,
-        topGainers: [
-          { symbol: 'BTCUSDT', change: 5.2 },
-          { symbol: 'ETHUSDT', change: 3.8 },
-          { symbol: 'BNBUSDT', change: 2.1 }
-        ],
-        topLosers: [
-          { symbol: 'ADAUSDT', change: -4.2 },
-          { symbol: 'DOTUSDT', change: -3.1 },
-          { symbol: 'LINKUSDT', change: -2.8 }
-        ]
-      }
+      data: marketOverview
     };
     
     res.status(200).json(response);

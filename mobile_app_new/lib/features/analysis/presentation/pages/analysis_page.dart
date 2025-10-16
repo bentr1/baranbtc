@@ -1,499 +1,121 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_card.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../../app/widgets/common/custom_card.dart';
+import '../../../../core/config/app_config.dart';
 
 class AnalysisPage extends ConsumerStatefulWidget {
-  final String symbol;
-
-  const AnalysisPage({
-    super.key,
-    required this.symbol,
-  });
+  const AnalysisPage({super.key});
 
   @override
   ConsumerState<AnalysisPage> createState() => _AnalysisPageState();
 }
 
-class _AnalysisPageState extends ConsumerState<AnalysisPage>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-  
-  bool _isLoading = true;
-  String? _errorMessage;
-  Map<String, dynamic>? _analysisData;
+class _AnalysisPageState extends ConsumerState<AnalysisPage> {
+  int _selectedTab = 0;
+  String _selectedCrypto = 'BTCUSDT';
+  String _selectedTimeframe = '1D';
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadAnalysisData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadAnalysisData() async {
-    // Simulate loading
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _analysisData = {
-          'symbol': widget.symbol,
-          'pivotTraditional': {
-            'signal': 'BUY',
-            'confidence': 0.85,
-            'description': 'Fiyat pivot noktalarına yaklaşıyor. Güçlü destek seviyesi.',
-            'timestamp': DateTime.now().subtract(const Duration(hours: 2)),
-          },
-          's1r1Touch': {
-            'signal': 'HOLD',
-            'confidence': 0.65,
-            'description': 'Fiyat S1 destek seviyesinde. Dikkatli olun.',
-            'timestamp': DateTime.now().subtract(const Duration(hours: 4)),
-          },
-          'movingAverageTouch': {
-            'signal': 'BUY',
-            'confidence': 0.78,
-            'description': 'Fiyat 50 günlük ortalamaya dokundu. Yükseliş sinyali.',
-            'timestamp': DateTime.now().subtract(const Duration(hours: 6)),
-          },
-        };
-      });
-    }
-  }
+  final List<String> _cryptos = ['BTCUSDT', 'ETHUSDT', 'ADAUSDT', 'SOLUSDT'];
+  final List<String> _timeframes = ['1H', '4H', '1D', '1W'];
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_isLoading) {
-      return Scaffold(
-        body: Center(
-          child: LoadingIndicator(
-            message: 'Teknik analiz yükleniyor...',
-          ),
-        ),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('${widget.symbol} Analiz'),
-          centerTitle: true,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64.sp,
-                color: AppConfig.errorColor,
-              ),
-              SizedBox(height: 16.h),
-              Text(
-                'Analiz yüklenirken hata oluştu',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppConfig.errorColor,
-                ),
-              ),
-              SizedBox(height: 8.h),
-              Text(
-                _errorMessage!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 24.h),
-              CustomButton(
-                text: 'Tekrar Dene',
-                onPressed: _loadAnalysisData,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.symbol} Analiz'),
-        centerTitle: true,
+        title: Text(
+          'Technical Analysis',
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAnalysisData,
+            onPressed: () => context.go('/settings'),
+            icon: Icon(Icons.settings),
           ),
         ],
       ),
       body: Column(
         children: [
+          // Crypto and Timeframe Selector
+          _buildSelectorBar(),
+          
           // Tab Bar
-          Container(
-            color: theme.colorScheme.surface,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppConfig.primaryColor,
-              unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
-              indicatorColor: AppConfig.primaryColor,
-              tabs: const [
-                Tab(text: 'Pivot Traditional'),
-                Tab(text: 'S1/R1 Touch'),
-                Tab(text: 'Moving Average'),
-              ],
-            ),
-          ),
-
-          // Tab Views
+          _buildTabBar(),
+          
+          // Tab Content
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPivotTraditionalTab(),
-                _buildS1R1TouchTab(),
-                _buildMovingAverageTab(),
-              ],
-            ),
+            child: _buildTabContent(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPivotTraditionalTab() {
-    if (_analysisData == null) return const SizedBox.shrink();
-
-    final data = _analysisData!['pivotTraditional'] as Map<String, dynamic>;
-    
-    return SingleChildScrollView(
+  Widget _buildSelectorBar() {
+    return Container(
       padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Analysis Card
-          AnalysisCard(
-            title: 'Pivot Traditional Analizi',
-            description: data['description'],
-            signal: data['signal'],
-            confidence: data['confidence'],
-            timestamp: data['timestamp'],
-            onTap: () {
-              // Show detailed analysis
-            },
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Chart Placeholder
-          Container(
-            height: 300.h,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 48.sp,
-                    color: AppConfig.primaryColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'Pivot Traditional Grafiği',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConfig.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Analysis Details
-          Text(
-            'Analiz Detayları',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          _buildDetailCard([
-            _buildDetailRow('Sinyal', data['signal']),
-            _buildDetailRow('Güven Seviyesi', '${(data['confidence'] * 100).toStringAsFixed(0)}%'),
-            _buildDetailRow('Son Güncelleme', _formatTimestamp(data['timestamp'])),
-            _buildDetailRow('Durum', 'Aktif'),
-          ]),
-
-          SizedBox(height: 24.h),
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: 'Fiyat Uyarısı',
-                  icon: Icons.notifications,
-                  type: ButtonType.outline,
-                  onPressed: _setPriceAlert,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: CustomButton(
-                  text: 'Paylaş',
-                  icon: Icons.share,
-                  type: ButtonType.outline,
-                  onPressed: _shareAnalysis,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildS1R1TouchTab() {
-    if (_analysisData == null) return const SizedBox.shrink();
-
-    final data = _analysisData!['s1r1Touch'] as Map<String, dynamic>;
-    
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Analysis Card
-          AnalysisCard(
-            title: 'S1/R1 Touch Analizi',
-            description: data['description'],
-            signal: data['signal'],
-            confidence: data['confidence'],
-            timestamp: data['timestamp'],
-            onTap: () {
-              // Show detailed analysis
-            },
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Chart Placeholder
-          Container(
-            height: 300.h,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 48.sp,
-                    color: AppConfig.primaryColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'S1/R1 Touch Grafiği',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConfig.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Analysis Details
-          Text(
-            'Analiz Detayları',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          _buildDetailCard([
-            _buildDetailRow('Sinyal', data['signal']),
-            _buildDetailRow('Güven Seviyesi', '${(data['confidence'] * 100).toStringAsFixed(0)}%'),
-            _buildDetailRow('Son Güncelleme', _formatTimestamp(data['timestamp'])),
-            _buildDetailRow('Durum', 'Aktif'),
-          ]),
-
-          SizedBox(height: 24.h),
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: 'Fiyat Uyarısı',
-                  icon: Icons.notifications,
-                  type: ButtonType.outline,
-                  onPressed: _setPriceAlert,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: CustomButton(
-                  text: 'Paylaş',
-                  icon: Icons.share,
-                  type: ButtonType.outline,
-                  onPressed: _shareAnalysis,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMovingAverageTab() {
-    if (_analysisData == null) return const SizedBox.shrink();
-
-    final data = _analysisData!['movingAverageTouch'] as Map<String, dynamic>;
-    
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Analysis Card
-          AnalysisCard(
-            title: 'Moving Average Touch Analizi',
-            description: data['description'],
-            signal: data['signal'],
-            confidence: data['confidence'],
-            timestamp: data['timestamp'],
-            onTap: () {
-              // Show detailed analysis
-            },
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Chart Placeholder
-          Container(
-            height: 300.h,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 48.sp,
-                    color: AppConfig.primaryColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'Moving Average Grafiği',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConfig.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 24.h),
-
-          // Analysis Details
-          Text(
-            'Analiz Detayları',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16.h),
-
-          _buildDetailCard([
-            _buildDetailRow('Sinyal', data['signal']),
-            _buildDetailRow('Güven Seviyesi', '${(data['confidence'] * 100).toStringAsFixed(0)}%'),
-            _buildDetailRow('Son Güncelleme', _formatTimestamp(data['timestamp'])),
-            _buildDetailRow('Durum', 'Aktif'),
-          ]),
-
-          SizedBox(height: 24.h),
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: 'Fiyat Uyarısı',
-                  icon: Icons.notifications,
-                  type: ButtonType.outline,
-                  onPressed: _setPriceAlert,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: CustomButton(
-                  text: 'Paylaş',
-                  icon: Icons.share,
-                  type: ButtonType.outline,
-                  onPressed: _shareAnalysis,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailCard(List<Widget> children) {
-    return CustomCard(
-      child: Column(
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.h),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          // Crypto Selector
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedCrypto,
+                  isExpanded: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCrypto = value!;
+                    });
+                  },
+                  items: _cryptos.map((crypto) {
+                    return DropdownMenuItem(
+                      value: crypto,
+                      child: Text(crypto),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+          
+          SizedBox(width: 16.w),
+          
+          // Timeframe Selector
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedTimeframe,
+                  isExpanded: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedTimeframe = value!;
+                    });
+                  },
+                  items: _timeframes.map((timeframe) {
+                    return DropdownMenuItem(
+                      value: timeframe,
+                      child: Text(timeframe),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ),
         ],
@@ -501,26 +123,547 @@ class _AnalysisPageState extends ConsumerState<AnalysisPage>
     );
   }
 
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
+  Widget _buildTabBar() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton('Overview', 0),
+          ),
+          Expanded(
+            child: _buildTabButton('Indicators', 1),
+          ),
+          Expanded(
+            child: _buildTabButton('Signals', 2),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (difference.inMinutes < 1) {
-      return 'Şimdi';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}dk önce';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}sa önce';
-    } else {
-      return '${difference.inDays}g önce';
+  Widget _buildTabButton(String label, int index) {
+    final isSelected = _selectedTab == index;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppConfig.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey[600],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_selectedTab) {
+      case 0:
+        return _buildOverviewTab();
+      case 1:
+        return _buildIndicatorsTab();
+      case 2:
+        return _buildSignalsTab();
+      default:
+        return _buildOverviewTab();
     }
   }
 
-  void _setPriceAlert() {
-    // TODO: Implement price alert functionality
+  Widget _buildOverviewTab() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Market Summary
+          Text(
+            'Market Summary',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Trend',
+                  'Bullish',
+                  AppConfig.successColor,
+                  Icons.trending_up,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Momentum',
+                  'Strong',
+                  AppConfig.infoColor,
+                  Icons.speed,
+                ),
+              ),
+            ],
+          ),
+          
+          SizedBox(height: 16.h),
+          
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Volume',
+                  'High',
+                  AppConfig.warningColor,
+                  Icons.bar_chart,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Volatility',
+                  'Medium',
+                  AppConfig.accentColor,
+                  Icons.show_chart,
+                ),
+              ),
+            ],
+          ),
+          
+          SizedBox(height: 24.h),
+          
+          // Price Levels
+          Text(
+            'Key Price Levels',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          _buildPriceLevelCard(
+            'Support Level 1',
+            '\$42,100',
+            'Strong support zone',
+            AppConfig.successColor,
+          ),
+          SizedBox(height: 12.h),
+          _buildPriceLevelCard(
+            'Support Level 2',
+            '\$40,500',
+            'Secondary support',
+            AppConfig.successColor,
+          ),
+          SizedBox(height: 12.h),
+          _buildPriceLevelCard(
+            'Resistance Level 1',
+            '\$44,500',
+            'Key resistance',
+            AppConfig.errorColor,
+          ),
+          SizedBox(height: 12.h),
+          _buildPriceLevelCard(
+            'Resistance Level 2',
+            '\$46,000',
+            'Strong resistance',
+            AppConfig.errorColor,
+          ),
+        ],
+      ),
+    );
   }
 
-  void _shareAnalysis() {
-    // TODO: Implement share functionality
+  Widget _buildSummaryCard(String title, String value, Color color, IconData icon) {
+    return CustomCard(
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 32.w,
+            color: color,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceLevelCard(String title, String price, String description, Color color) {
+    return CustomCard(
+      child: Row(
+        children: [
+          Container(
+            width: 4.w,
+            height: 40.h,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppConfig.primaryColor,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  price,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorsTab() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Technical Indicators',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          // RSI
+          _buildIndicatorCard(
+            'RSI (14)',
+            '65.4',
+            'Neutral',
+            AppConfig.infoColor,
+            'Relative Strength Index indicates neutral momentum',
+          ),
+          SizedBox(height: 12.h),
+          
+          // MACD
+          _buildIndicatorCard(
+            'MACD',
+            'Bullish',
+            'Positive',
+            AppConfig.successColor,
+            'Moving Average Convergence Divergence shows bullish signal',
+          ),
+          SizedBox(height: 12.h),
+          
+          // Bollinger Bands
+          _buildIndicatorCard(
+            'Bollinger Bands',
+            'Upper',
+            'Near resistance',
+            AppConfig.warningColor,
+            'Price is near upper Bollinger Band resistance',
+          ),
+          SizedBox(height: 12.h),
+          
+          // SMA
+          _buildIndicatorCard(
+            'SMA (20)',
+            '\$42,800',
+            'Support',
+            AppConfig.successColor,
+            '20-period Simple Moving Average provides support',
+          ),
+          SizedBox(height: 12.h),
+          
+          // EMA
+          _buildIndicatorCard(
+            'EMA (50)',
+            '\$41,500',
+            'Trend',
+            AppConfig.infoColor,
+            '50-period Exponential Moving Average shows trend direction',
+          ),
+          SizedBox(height: 12.h),
+          
+          // Stochastic
+          _buildIndicatorCard(
+            'Stochastic',
+            '78.2',
+            'Overbought',
+            AppConfig.warningColor,
+            'Stochastic oscillator indicates overbought conditions',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorCard(String name, String value, String signal, Color color, String description) {
+    return CustomCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: AppConfig.primaryColor,
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  signal,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey[600],
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalsTab() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Trading Signals',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          // Buy Signals
+          _buildSignalSection(
+            'Buy Signals',
+            AppConfig.successColor,
+            [
+              'MACD bullish crossover',
+              'RSI above 50',
+              'Price above SMA(20)',
+              'Volume increasing',
+            ],
+          ),
+          
+          SizedBox(height: 24.h),
+          
+          // Sell Signals
+          _buildSignalSection(
+            'Sell Signals',
+            AppConfig.errorColor,
+            [
+              'Stochastic overbought',
+              'Price near resistance',
+              'Volume decreasing',
+            ],
+          ),
+          
+          SizedBox(height: 24.h),
+          
+          // Neutral Signals
+          _buildSignalSection(
+            'Neutral Signals',
+            AppConfig.infoColor,
+            [
+              'RSI in neutral zone',
+              'Price consolidating',
+              'Mixed volume signals',
+            ],
+          ),
+          
+          SizedBox(height: 24.h),
+          
+          // Overall Signal
+          Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: AppConfig.successColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: AppConfig.successColor.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.trending_up,
+                  color: AppConfig.successColor,
+                  size: 32.w,
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Overall Signal',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppConfig.successColor,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        'Bullish',
+                        style: TextStyle(
+                          fontSize: 20.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppConfig.successColor,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        'Strong buy signals with good risk/reward ratio',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalSection(String title, Color color, List<String> signals) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        SizedBox(height: 12.h),
+        ...signals.map((signal) => Padding(
+          padding: EdgeInsets.only(bottom: 8.h),
+          child: Row(
+            children: [
+              Container(
+                width: 6.w,
+                height: 6.w,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  signal,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        )),
+      ],
+    );
   }
 }

@@ -29,13 +29,15 @@ class CustomTextField extends StatefulWidget {
   final int maxLines;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
-  final Widget? prefixIcon;
+  final dynamic prefixIcon;
   final Widget? suffixIcon;
   final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
   final bool autofocus;
   final FocusNode? focusNode;
   final EdgeInsetsGeometry? contentPadding;
+  final TextInputType? keyboardType;
+  final TextStyle? style;
 
   const CustomTextField({
     super.key,
@@ -61,6 +63,8 @@ class CustomTextField extends StatefulWidget {
     this.autofocus = false,
     this.focusNode,
     this.contentPadding,
+    this.keyboardType,
+    this.style,
   });
 
   @override
@@ -81,6 +85,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
   }
 
   TextInputType _getKeyboardType() {
+    if (widget.keyboardType != null) {
+      return widget.keyboardType!;
+    }
+    
     switch (widget.type) {
       case TextFieldType.email:
         return TextInputType.emailAddress;
@@ -127,6 +135,16 @@ class _CustomTextFieldState extends State<CustomTextField> {
     setState(() {
       _obscureText = !_obscureText;
     });
+  }
+
+  Widget? _buildPrefixIcon() {
+    if (widget.prefixIcon is IconData) {
+      return Icon(
+        widget.prefixIcon as IconData,
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+      );
+    }
+    return widget.prefixIcon;
   }
 
   Widget? _buildSuffixIcon() {
@@ -177,10 +195,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
           textCapitalization: widget.textCapitalization,
           autofocus: widget.autofocus,
           focusNode: widget.focusNode,
+          style: widget.style,
           decoration: InputDecoration(
             hintText: widget.hint,
             errorText: widget.errorText,
-            prefixIcon: widget.prefixIcon,
+            prefixIcon: _buildPrefixIcon(),
             suffixIcon: _buildSuffixIcon(),
             contentPadding: widget.contentPadding ?? EdgeInsets.symmetric(
               horizontal: 16.w,

@@ -10,6 +10,24 @@ class AppConfig {
   static const String baseUrl = 'https://btc.nazlihw.com';
   static const String apiVersion = '/api/v1';
   static const Duration requestTimeout = Duration(seconds: 30);
+  
+  // Development API Configuration (for local testing)
+  static const String devBaseUrl = 'http://185.8.129.67:3000';
+  static const String localBaseUrl = 'http://localhost:3000';
+  
+  // Firebase Configuration
+  static const String firebaseApiKey = 'AIzaSyBMendfBjnBRqxzV9bB--qVvQv3lg-VQMs';
+  static const String firebaseAuthDomain = 'btcbaran-c7334.firebaseapp.com';
+  static const String firebaseProjectId = 'btcbaran-c7334';
+  static const String firebaseStorageBucket = 'btcbaran-c7334.firebasestorage.app';
+  static const String firebaseMessagingSenderId = '78955542733';
+  static const String firebaseAppId = '1:78955542733:android:81201a5f6b578f2fc65184';
+  
+  // Security Configuration
+  static const int maxLoginAttempts = 5;
+  static const Duration lockoutDuration = Duration(minutes: 15);
+  static const Duration sessionTimeout = Duration(hours: 24);
+  static const Duration tokenRefreshThreshold = Duration(minutes: 5);
 
   // Supported Languages
   static const List<String> supportedLanguages = ['tr', 'en', 'fr', 'de'];

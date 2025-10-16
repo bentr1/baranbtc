@@ -28,6 +28,8 @@ class CustomButton extends StatelessWidget {
   final Widget? trailingIcon;
   final EdgeInsetsGeometry? padding;
   final double? borderRadius;
+  final Color? backgroundColor;
+  final Color? textColor;
 
   const CustomButton({
     super.key,
@@ -41,13 +43,13 @@ class CustomButton extends StatelessWidget {
     this.trailingIcon,
     this.padding,
     this.borderRadius,
+    this.backgroundColor,
+    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final buttonStyle = _getButtonStyle(context);
-    final buttonSize = _getButtonSize();
-    final buttonPadding = padding ?? _getDefaultPadding();
 
     Widget button = _buildButtonContent();
 
@@ -69,20 +71,20 @@ class CustomButton extends StatelessWidget {
     switch (type) {
       case ButtonType.primary:
         return ElevatedButton.styleFrom(
-          backgroundColor: AppConfig.primaryColor,
-          foregroundColor: Colors.white,
+          backgroundColor: backgroundColor ?? AppConfig.primaryColor,
+          foregroundColor: textColor ?? Colors.white,
           elevation: 2,
-          shadowColor: AppConfig.primaryColor.withOpacity(0.3),
+          shadowColor: AppConfig.primaryColor.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius ?? AppConfig.defaultRadius),
           ),
         );
       case ButtonType.secondary:
         return ElevatedButton.styleFrom(
-          backgroundColor: AppConfig.secondaryColor,
-          foregroundColor: Colors.white,
+          backgroundColor: backgroundColor ?? AppConfig.secondaryColor,
+          foregroundColor: textColor ?? Colors.white,
           elevation: 2,
-          shadowColor: AppConfig.secondaryColor.withOpacity(0.3),
+          shadowColor: AppConfig.secondaryColor.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius ?? AppConfig.defaultRadius),
           ),
@@ -90,9 +92,9 @@ class CustomButton extends StatelessWidget {
       case ButtonType.outline:
         return ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: AppConfig.primaryColor,
+          foregroundColor: textColor ?? AppConfig.primaryColor,
           elevation: 0,
-          side: BorderSide(
+          side: const BorderSide(
             color: AppConfig.primaryColor,
             width: 2,
           ),
@@ -115,7 +117,7 @@ class CustomButton extends StatelessWidget {
           backgroundColor: AppConfig.errorColor,
           foregroundColor: Colors.white,
           elevation: 2,
-          shadowColor: AppConfig.errorColor.withOpacity(0.3),
+          shadowColor: AppConfig.errorColor.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius ?? AppConfig.defaultRadius),
           ),

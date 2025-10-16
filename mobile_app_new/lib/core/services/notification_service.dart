@@ -1,564 +1,389 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_local_notifications_platform_interface/flutter_local_notifications_platform_interface.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../config/app_config.dart';
 import 'local_storage_service.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
-
   static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-
+  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  
   static bool _isInitialized = false;
   static String? _fcmToken;
 
-  // Initialize notification service
   static Future<void> initialize() async {
     if (_isInitialized) return;
 
-    try {
-      // Initialize local notifications
-      await _initializeLocalNotifications();
-
-      // Initialize Firebase messaging
-      await _initializeFirebaseMessaging();
-
-      // Request permissions
-      await _requestPermissions();
-
-      // Set up message handlers
-      _setupMessageHandlers();
-
-      _isInitialized = true;
-    } catch (e) {
-      print('Failed to initialize NotificationService: $e');
-      rethrow;
-    }
+    // Initialize Firebase Messaging
+    await _initializeFirebaseMessaging();
+    
+    // Initialize Local Notifications
+    await _initializeLocalNotifications();
+    
+    // Request permissions
+    await _requestPermissions();
+    
+    // Get FCM token
+    await _getFCMToken();
+    
+    _isInitialized = true;
   }
 
-  // Initialize local notifications
-  static Future<void> _initializeLocalNotifications() async {
-    try {
-      // Android settings
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-
-      // iOS settings
-      const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      );
-
-      // Initialize settings
-      const initSettings = InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-      );
-
-      // Initialize plugin
-      await _localNotifications.initialize(
-        initSettings,
-        onDidReceiveNotificationResponse: _onNotificationTapped,
-      );
-
-      // Create notification channels for Android
-      await _createNotificationChannels();
-
-    } catch (e) {
-      print('Failed to initialize local notifications: $e');
-    }
-  }
-
-  // Create notification channels for Android
-  static Future<void> _createNotificationChannels() async {
-    try {
-      // Price alerts channel
-      const priceAlertsChannel = AndroidNotificationChannel(
-        AppConfig.priceAlertsChannel,
-        'Price Alerts',
-        description: 'Notifications for price alerts and market movements',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      // Analysis signals channel
-      const analysisSignalsChannel = AndroidNotificationChannel(
-        AppConfig.analysisSignalsChannel,
-        'Analysis Signals',
-        description: 'Notifications for technical analysis signals',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      // Market updates channel
-      const marketUpdatesChannel = AndroidNotificationChannel(
-        AppConfig.marketUpdatesChannel,
-        'Market Updates',
-        description: 'General market updates and news',
-        importance: Importance.high,
-        playSound: false,
-        enableVibration: false,
-        showBadge: true,
-      );
-
-      // Security alerts channel
-      const securityAlertsChannel = AndroidNotificationChannel(
-        AppConfig.securityAlertsChannel,
-        'Security Alerts',
-        description: 'Important security notifications',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      // Create channels
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(priceAlertsChannel);
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(analysisSignalsChannel);
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(marketUpdatesChannel);
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(securityAlertsChannel);
-
-    } catch (e) {
-      print('Failed to create notification channels: $e');
-    }
-  }
-
-  // Initialize Firebase messaging
+  // Initialize Firebase Messaging
   static Future<void> _initializeFirebaseMessaging() async {
-    try {
-      // Get FCM token
-      _fcmToken = await _firebaseMessaging.getToken();
-
-      // Listen for token refresh
-      _firebaseMessaging.onTokenRefresh.listen((token) {
-        _fcmToken = token;
-        _onTokenRefresh(token);
-      });
-
-      // Set up foreground message handling
-      FirebaseMessaging.onMessage.listen(_onForegroundMessage);
-
-      // Set up background message handling
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-      // Set up message opened handling
-      FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);
-
-      // Check for initial message
-      final initialMessage = await _firebaseMessaging.getInitialMessage();
-      if (initialMessage != null) {
-        _onMessageOpenedApp(initialMessage);
-      }
-
-    } catch (e) {
-      print('Failed to initialize Firebase messaging: $e');
-    }
-  }
-
-  // Request permissions
-  static Future<void> _requestPermissions() async {
-    try {
-      // Request local notification permissions
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-
-      if (androidPlugin != null) {
-        final granted = await androidPlugin.requestNotificationsPermission();
-        if (granted) {
-          print('Local notification permission granted');
-        }
-      }
-
-      // Request Firebase messaging permissions
-      final messagingSettings = await _firebaseMessaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
-
-      if (messagingSettings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('Firebase messaging permission granted');
-      } else if (messagingSettings.authorizationStatus == AuthorizationStatus.provisional) {
-        print('Firebase messaging provisional permission granted');
-      } else {
-        print('Firebase messaging permission denied');
-      }
-
-    } catch (e) {
-      print('Failed to request permissions: $e');
-    }
-  }
-
-  // Set up message handlers
-  static void _setupMessageHandlers() {
+    // Set background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    
     // Handle notification taps
-    _localNotifications.initialize(
-      const InitializationSettings(),
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    
+    // Handle notification tap when app is terminated
+    final initialMessage = await _firebaseMessaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(initialMessage);
+    }
+  }
+
+  // Initialize Local Notifications
+  static Future<void> _initializeLocalNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _localNotifications.initialize(
+      initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
   }
 
-  // Handle notification tap
-  static void _onNotificationTapped(NotificationResponse response) {
+  // Request permissions
+  static Future<void> _requestPermissions() async {
+    // Request notification permission
+    final settings = await _firebaseMessaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('User granted notification permission');
+    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      print('User granted provisional notification permission');
+    } else {
+      print('User declined notification permission');
+    }
+
+    // Request local notification permission
+    await Permission.notification.request();
+  }
+
+  // Get FCM token
+  static Future<void> _getFCMToken() async {
     try {
-      final payload = response.payload;
-      if (payload != null) {
-        final data = jsonDecode(payload) as Map<String, dynamic>;
-        _handleNotificationTap(data);
+      _fcmToken = await _firebaseMessaging.getToken();
+      print('FCM Token: $_fcmToken');
+      
+      // Store token for API calls
+      if (_fcmToken != null) {
+        await LocalStorageService.setString('fcm_token', _fcmToken!);
       }
     } catch (e) {
-      print('Failed to handle notification tap: $e');
+      print('Error getting FCM token: $e');
     }
   }
 
-  // Handle notification tap
-  static void _handleNotificationTap(Map<String, dynamic> data) {
-    try {
-      final type = data['type'] as String?;
-      final symbol = data['symbol'] as String?;
+  // Get current FCM token
+  static String? getFCMToken() {
+    return _fcmToken;
+  }
 
-      // Navigate based on notification type
-      switch (type) {
-        case 'price_alert':
-          if (symbol != null) {
-            // Navigate to crypto detail page
-            print('Navigate to crypto detail: $symbol');
-          }
-          break;
-        case 'analysis_signal':
-          if (symbol != null) {
-            // Navigate to analysis page
-            print('Navigate to analysis: $symbol');
-          }
-          break;
-        case 'security_alert':
-          // Navigate to security page
-          print('Navigate to security page');
-          break;
-        default:
-          // Navigate to notifications page
-          print('Navigate to notifications page');
-          break;
-      }
+  // Subscribe to topic
+  static Future<void> subscribeToTopic(String topic) async {
+    try {
+      await _firebaseMessaging.subscribeToTopic(topic);
+      print('Subscribed to topic: $topic');
     } catch (e) {
-      print('Failed to handle notification tap: $e');
+      print('Error subscribing to topic $topic: $e');
     }
   }
 
-  // Handle foreground message
-  static void _onForegroundMessage(RemoteMessage message) {
+  // Unsubscribe from topic
+  static Future<void> unsubscribeFromTopic(String topic) async {
     try {
-      print('Received foreground message: ${message.messageId}');
-
-      // Show local notification
-      _showLocalNotification(message);
-
-      // Log analytics
-      LocalStorageService.addAnalyticsEvent('notification_received', {
-        'type': 'foreground',
-        'message_id': message.messageId,
-        'data': message.data,
-      });
-
+      await _firebaseMessaging.unsubscribeFromTopic(topic);
+      print('Unsubscribed from topic: $topic');
     } catch (e) {
-      print('Failed to handle foreground message: $e');
-    }
-  }
-
-  // Handle message opened from background
-  static void _onMessageOpenedApp(RemoteMessage message) {
-    try {
-      print('Message opened from background: ${message.messageId}');
-
-      // Handle navigation
-      _handleNotificationTap(message.data);
-
-      // Log analytics
-      LocalStorageService.addAnalyticsEvent('notification_opened', {
-        'type': 'background',
-        'message_id': message.messageId,
-        'data': message.data,
-      });
-
-    } catch (e) {
-      print('Failed to handle background message: $e');
-    }
-  }
-
-  // Handle token refresh
-  static void _onTokenRefresh(String token) {
-    try {
-      print('FCM token refreshed: $token');
-      _fcmToken = token;
-
-      // Send new token to server
-      _sendTokenToServer(token);
-
-    } catch (e) {
-      print('Failed to handle token refresh: $e');
-    }
-  }
-
-  // Send token to server
-  static Future<void> _sendTokenToServer(String token) async {
-    try {
-      // TODO: Implement API call to update FCM token
-      print('Sending FCM token to server: $token');
-    } catch (e) {
-      print('Failed to send token to server: $e');
+      print('Error unsubscribing from topic $topic: $e');
     }
   }
 
   // Show local notification
-  static Future<void> _showLocalNotification(RemoteMessage message) async {
-    try {
-      final data = message.data;
-      final notification = message.notification;
-
-      if (notification == null) return;
-
-      final androidDetails = AndroidNotificationDetails(
-        _getChannelId(data['type']),
-        _getChannelName(data['type']),
-        channelDescription: _getChannelDescription(data['type']),
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
-        icon: '@mipmap/ic_launcher',
-        color: _getNotificationColor(data['type']),
-      );
-
-      const iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
-
-      const details = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
-
-      await _localNotifications.show(
-        _generateNotificationId(),
-        notification.title ?? 'BTC Baran',
-        notification.body ?? '',
-        details,
-        payload: jsonEncode(data),
-      );
-
-    } catch (e) {
-      print('Failed to show local notification: $e');
-    }
-  }
-
-  // Get channel ID based on notification type
-  static String _getChannelId(String? type) {
-    switch (type) {
-      case 'price_alert':
-        return AppConfig.priceAlertsChannel;
-      case 'analysis_signal':
-        return AppConfig.analysisSignalsChannel;
-      case 'market_update':
-        return AppConfig.marketUpdatesChannel;
-      case 'security_alert':
-        return AppConfig.securityAlertsChannel;
-      default:
-        return AppConfig.marketUpdatesChannel;
-    }
-  }
-
-  // Get channel name based on notification type
-  static String _getChannelName(String? type) {
-    switch (type) {
-      case 'price_alert':
-        return 'Price Alerts';
-      case 'analysis_signal':
-        return 'Analysis Signals';
-      case 'market_update':
-        return 'Market Updates';
-      case 'security_alert':
-        return 'Security Alerts';
-      default:
-        return 'Market Updates';
-    }
-  }
-
-  // Get channel description based on notification type
-  static String _getChannelDescription(String? type) {
-    switch (type) {
-      case 'price_alert':
-        return 'Notifications for price alerts and market movements';
-      case 'analysis_signal':
-        return 'Notifications for technical analysis signals';
-      case 'market_update':
-        return 'General market updates and news';
-      case 'security_alert':
-        return 'Important security notifications';
-      default:
-        return 'General notifications';
-    }
-  }
-
-  // Get notification color based on type
-  static int _getNotificationColor(String? type) {
-    switch (type) {
-      case 'price_alert':
-        return 0xFF4CAF50; // Green
-      case 'analysis_signal':
-        return 0xFF2196F3; // Blue
-      case 'market_update':
-        return 0xFFFF9800; // Orange
-      case 'security_alert':
-        return 0xFFF44336; // Red
-      default:
-        return 0xFF9E9E9E; // Grey
-    }
-  }
-
-  // Generate unique notification ID
-  static int _generateNotificationId() {
-    return DateTime.now().millisecondsSinceEpoch;
-  }
-
-  // Public methods
-  static Future<String?> getFCMToken() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-    return _fcmToken;
-  }
-
   static Future<void> showLocalNotification({
+    required int id,
     required String title,
     required String body,
     String? payload,
-    String channelId = AppConfig.marketUpdatesChannel,
+    NotificationType type = NotificationType.general,
   }) async {
     try {
-      if (!_isInitialized) {
-        await initialize();
-      }
-
       final androidDetails = AndroidNotificationDetails(
-        channelId,
-        _getChannelName(channelId),
-        channelDescription: _getChannelDescription(channelId),
+        _getChannelId(type),
+        _getChannelName(type),
+        channelDescription: _getChannelDescription(type),
         importance: Importance.high,
         priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
         icon: '@mipmap/ic_launcher',
+        color: _getNotificationColor(type),
       );
-
+      
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
       );
-
-      const details = NotificationDetails(
+      
+      final details = NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       );
-
+      
       await _localNotifications.show(
-        _generateNotificationId(),
+        id,
         title,
         body,
         details,
         payload: payload,
       );
-
     } catch (e) {
-      print('Failed to show local notification: $e');
+      print('Error showing local notification: $e');
     }
   }
 
+  // Show scheduled notification
+  static Future<void> showScheduledNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+    String? payload,
+    NotificationType type = NotificationType.general,
+  }) async {
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _getChannelId(type),
+        _getChannelName(type),
+        channelDescription: _getChannelDescription(type),
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+        color: _getNotificationColor(type),
+      );
+      
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+      
+      await _localNotifications.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledDate,
+        details,
+        payload: payload,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      print('Error showing scheduled notification: $e');
+    }
+  }
+
+  // Cancel notification
   static Future<void> cancelNotification(int id) async {
-    try {
-      await _localNotifications.cancel(id);
-    } catch (e) {
-      print('Failed to cancel notification: $e');
-    }
+    await _localNotifications.cancel(id);
   }
 
+  // Cancel all notifications
   static Future<void> cancelAllNotifications() async {
-    try {
-      await _localNotifications.cancelAll();
-    } catch (e) {
-      print('Failed to cancel all notifications: $e');
+    await _localNotifications.cancelAll();
+  }
+
+  // Get pending notifications
+  static Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    return await _localNotifications.pendingNotificationRequests();
+  }
+
+  // Handle foreground messages
+  static void _handleForegroundMessage(RemoteMessage message) {
+    print('Received foreground message: ${message.messageId}');
+    
+    // Show local notification for foreground messages
+    showLocalNotification(
+      id: message.hashCode,
+      title: message.notification?.title ?? 'BTC Baran',
+      body: message.notification?.body ?? '',
+      payload: jsonEncode(message.data),
+      type: _getNotificationTypeFromData(message.data),
+    );
+  }
+
+  // Handle notification tap
+  static void _handleNotificationTap(RemoteMessage message) {
+    print('Notification tapped: ${message.messageId}');
+    
+    // Handle navigation based on notification data
+    final data = message.data;
+    if (data.containsKey('route')) {
+      // Navigate to specific route
+      _navigateToRoute(data['route']);
     }
   }
 
-  static Future<void> clearNotificationChannels() async {
-    try {
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-
-      if (androidPlugin != null) {
-        await androidPlugin.deleteNotificationChannel(AppConfig.priceAlertsChannel);
-        await androidPlugin.deleteNotificationChannel(AppConfig.analysisSignalsChannel);
-        await androidPlugin.deleteNotificationChannel(AppConfig.marketUpdatesChannel);
-        await androidPlugin.deleteNotificationChannel(AppConfig.securityAlertsChannel);
+  // Handle local notification tap
+  static void _onNotificationTapped(NotificationResponse response) {
+    print('Local notification tapped: ${response.id}');
+    
+    if (response.payload != null) {
+      try {
+        final data = jsonDecode(response.payload!);
+        if (data.containsKey('route')) {
+          _navigateToRoute(data['route']);
+        }
+      } catch (e) {
+        print('Error parsing notification payload: $e');
       }
-    } catch (e) {
-      print('Failed to clear notification channels: $e');
     }
   }
 
-  static Future<bool> isInitialized() async {
-    return _isInitialized;
+  // Navigate to route
+  static void _navigateToRoute(String route) {
+    // This would implement navigation logic
+    // For now, just print the route
+    print('Navigate to route: $route');
+  }
+
+  // Get notification type from data
+  static NotificationType _getNotificationTypeFromData(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    switch (type) {
+      case 'price_alert':
+        return NotificationType.priceAlert;
+      case 'analysis_signal':
+        return NotificationType.analysisSignal;
+      case 'market_update':
+        return NotificationType.marketUpdate;
+      case 'security_alert':
+        return NotificationType.securityAlert;
+      default:
+        return NotificationType.general;
+    }
+  }
+
+  // Get channel ID for notification type
+  static String _getChannelId(NotificationType type) {
+    switch (type) {
+      case NotificationType.priceAlert:
+        return AppConfig.priceAlertsChannel;
+      case NotificationType.analysisSignal:
+        return AppConfig.analysisSignalsChannel;
+      case NotificationType.marketUpdate:
+        return AppConfig.marketUpdatesChannel;
+      case NotificationType.securityAlert:
+        return AppConfig.securityAlertsChannel;
+      default:
+        return 'general';
+    }
+  }
+
+  // Get channel name for notification type
+  static String _getChannelName(NotificationType type) {
+    switch (type) {
+      case NotificationType.priceAlert:
+        return 'Price Alerts';
+      case NotificationType.analysisSignal:
+        return 'Analysis Signals';
+      case NotificationType.marketUpdate:
+        return 'Market Updates';
+      case NotificationType.securityAlert:
+        return 'Security Alerts';
+      default:
+        return 'General';
+    }
+  }
+
+  // Get channel description for notification type
+  static String _getChannelDescription(NotificationType type) {
+    switch (type) {
+      case NotificationType.priceAlert:
+        return 'Notifications for price alerts and targets';
+      case NotificationType.analysisSignal:
+        return 'Notifications for technical analysis signals';
+      case NotificationType.marketUpdate:
+        return 'Notifications for market updates and news';
+      case NotificationType.securityAlert:
+        return 'Notifications for security alerts and warnings';
+      default:
+        return 'General notifications';
+    }
+  }
+
+  // Get notification color for type
+  static Color _getNotificationColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.priceAlert:
+        return AppConfig.warningColor;
+      case NotificationType.analysisSignal:
+        return AppConfig.infoColor;
+      case NotificationType.marketUpdate:
+        return AppConfig.primaryColor;
+      case NotificationType.securityAlert:
+        return AppConfig.errorColor;
+      default:
+        return AppConfig.primaryColor;
+    }
+  }
+
+  // Cleanup
+  static Future<void> dispose() async {
+    // Cleanup resources if needed
   }
 }
 
 // Background message handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  try {
-    print('Handling background message: ${message.messageId}');
+  print('Handling background message: ${message.messageId}');
+}
 
-    // Log analytics
-    await LocalStorageService.addAnalyticsEvent('notification_received', {
-      'type': 'background',
-      'message_id': message.messageId,
-      'data': message.data,
-    });
-
-  } catch (e) {
-    print('Failed to handle background message: $e');
-  }
+// Notification types
+enum NotificationType {
+  general,
+  priceAlert,
+  analysisSignal,
+  marketUpdate,
+  securityAlert,
 }

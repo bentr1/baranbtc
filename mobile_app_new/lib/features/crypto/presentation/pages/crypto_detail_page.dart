@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_card.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
-import '../../../../shared/widgets/error_widget.dart';
+import '../../../../app/widgets/common/custom_card.dart';
+import '../../../../core/config/app_config.dart';
 
 class CryptoDetailPage extends ConsumerStatefulWidget {
   final String symbol;
@@ -21,312 +18,95 @@ class CryptoDetailPage extends ConsumerStatefulWidget {
   ConsumerState<CryptoDetailPage> createState() => _CryptoDetailPageState();
 }
 
-class _CryptoDetailPageState extends ConsumerState<CryptoDetailPage>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-  
-  bool _isLoading = true;
-  bool _isFavorite = false;
-  String? _errorMessage;
-  Map<String, dynamic>? _cryptoData;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _loadCryptoData();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadCryptoData() async {
-    // Simulate loading
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _cryptoData = {
-          'symbol': widget.symbol,
-          'name': _getCryptoName(widget.symbol),
-          'price': 43250.50,
-          'change24h': 1081.25,
-          'changePercent24h': 2.56,
-          'marketCap': 850000000000,
-          'volume24h': 25000000000,
-          'circulatingSupply': 19650000,
-          'totalSupply': 21000000,
-          'maxSupply': 21000000,
-          'high24h': 44500.00,
-          'low24h': 42000.00,
-        };
-      });
-    }
-  }
-
-  String _getCryptoName(String symbol) {
-    switch (symbol) {
-      case 'BTC':
-        return 'Bitcoin';
-      case 'ETH':
-        return 'Ethereum';
-      case 'BNB':
-        return 'Binance Coin';
-      case 'ADA':
-        return 'Cardano';
-      case 'SOL':
-        return 'Solana';
-      case 'XRP':
-        return 'XRP';
-      case 'DOT':
-        return 'Polkadot';
-      case 'MATIC':
-        return 'Polygon';
-      default:
-        return symbol;
-    }
-  }
+class _CryptoDetailPageState extends ConsumerState<CryptoDetailPage> {
+  int _selectedTab = 0;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: LoadingIndicator(
-            message: 'Kripto para bilgileri yükleniyor...',
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.symbol,
+          style: TextStyle(
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
           ),
         ),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.symbol),
-          centerTitle: true,
-        ),
-        body: CustomErrorWidget(
-          message: _errorMessage,
-          onRetry: _loadCryptoData,
-        ),
-      );
-    }
-
-    if (_cryptoData == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.symbol),
-          centerTitle: true,
-        ),
-        body: const EmptyStateWidget(
-          type: EmptyStateType.notFound,
-          message: 'Kripto para bulunamadı.',
-        ),
-      );
-    }
-
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 200.h,
-              floating: false,
-              pinned: true,
-              backgroundColor: AppConfig.primaryColor,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  widget.symbol,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppConfig.primaryColor,
-                        AppConfig.secondaryColor,
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: 40.h),
-                      Text(
-                        _cryptoData!['name'],
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        '\$${_cryptoData!['price'].toStringAsFixed(2)}',
-                        style: theme.textTheme.headlineLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        '${_cryptoData!['changePercent24h'] > 0 ? '+' : ''}${_cryptoData!['changePercent24h'].toStringAsFixed(2)}%',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: _cryptoData!['changePercent24h'] > 0 
-                              ? AppConfig.bullishColor 
-                              : AppConfig.bearishColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(
-                    _isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: _isFavorite ? Colors.red : Colors.white,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isFavorite = !_isFavorite;
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.share),
-                  onPressed: _shareCrypto,
-                ),
-              ],
-            ),
-          ];
-        },
-        body: Column(
-          children: [
-            // Tab Bar
-            Container(
-              color: theme.colorScheme.surface,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppConfig.primaryColor,
-                unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
-                indicatorColor: AppConfig.primaryColor,
-                isScrollable: true,
-                tabs: const [
-                  Tab(text: 'Grafik'),
-                  Tab(text: 'Detaylar'),
-                  Tab(text: 'Analiz'),
-                  Tab(text: 'Haberler'),
-                ],
-              ),
-            ),
-
-            // Tab Views
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildChartTab(),
-                  _buildDetailsTab(),
-                  _buildAnalysisTab(),
-                  _buildNewsTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
+        actions: [
+          IconButton(
+            onPressed: () => _showMoreOptions(),
+            icon: Icon(Icons.more_vert),
+          ),
+        ],
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: CustomButton(
-                text: 'Fiyat Uyarısı',
-                icon: Icons.notifications,
-                type: ButtonType.outline,
-                onPressed: _setPriceAlert,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: CustomButton(
-                text: 'Teknik Analiz',
-                icon: Icons.analytics,
-                onPressed: () => context.go('/analysis/${widget.symbol}'),
-              ),
-            ),
-          ],
-        ),
+      body: Column(
+        children: [
+          // Price Overview
+          _buildPriceOverview(),
+          
+          // Tab Bar
+          _buildTabBar(),
+          
+          // Tab Content
+          Expanded(
+            child: _buildTabContent(),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChartTab() {
+  Widget _buildPriceOverview() {
     return Container(
       padding: EdgeInsets.all(16.w),
       child: Column(
         children: [
-          // Chart Placeholder
-          Container(
-            height: 300.h,
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 48.sp,
-                    color: AppConfig.primaryColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'Grafik Yükleniyor...',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConfig.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
+          // Current Price
+          Text(
+            '\$43,250.50',
+            style: TextStyle(
+              fontSize: 32.sp,
+              fontWeight: FontWeight.bold,
+              color: AppConfig.primaryColor,
             ),
           ),
-
-          SizedBox(height: 24.h),
-
-          // Quick Stats
+          SizedBox(height: 8.h),
+          
+          // Price Change
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.trending_up,
+                color: AppConfig.successColor,
+                size: 20.w,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '+2.98% (+$1,250.30)',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  color: AppConfig.successColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          
+          // Market Stats
           Row(
             children: [
               Expanded(
-                child: _buildStatCard('24s Yüksek', '\$${_cryptoData!['high24h'].toStringAsFixed(2)}'),
+                child: _buildStatCard('24h High', '\$44,500.00'),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 16.w),
               Expanded(
-                child: _buildStatCard('24s Düşük', '\$${_cryptoData!['low24h'].toStringAsFixed(2)}'),
+                child: _buildStatCard('24h Low', '\$42,100.00'),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: _buildStatCard('24h Volume', '\$28.5B'),
               ),
             ],
           ),
@@ -335,97 +115,290 @@ class _CryptoDetailPageState extends ConsumerState<CryptoDetailPage>
     );
   }
 
-  Widget _buildDetailsTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
+  Widget _buildStatCard(String label, String value) {
+    return Container(
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: AppConfig.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Market Data
           Text(
-            'Piyasa Verileri',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+            label,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: Colors.grey[600],
             ),
           ),
-          SizedBox(height: 16.h),
-
-          _buildDetailCard([
-            _buildDetailRow('Piyasa Değeri', '\$${(_cryptoData!['marketCap'] / 1000000000).toStringAsFixed(2)}B'),
-            _buildDetailRow('24s Hacim', '\$${(_cryptoData!['volume24h'] / 1000000000).toStringAsFixed(2)}B'),
-            _buildDetailRow('Dolaşımdaki Arz', '${(_cryptoData!['circulatingSupply'] / 1000000).toStringAsFixed(2)}M'),
-            _buildDetailRow('Toplam Arz', '${(_cryptoData!['totalSupply'] / 1000000).toStringAsFixed(2)}M'),
-            _buildDetailRow('Maksimum Arz', '${(_cryptoData!['maxSupply'] / 1000000).toStringAsFixed(2)}M'),
-          ]),
-
-          SizedBox(height: 24.h),
-
-          // Price Data
+          SizedBox(height: 4.h),
           Text(
-            'Fiyat Verileri',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+            value,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
             ),
           ),
-          SizedBox(height: 16.h),
-
-          _buildDetailCard([
-            _buildDetailRow('Mevcut Fiyat', '\$${_cryptoData!['price'].toStringAsFixed(2)}'),
-            _buildDetailRow('24s Değişim', '${_cryptoData!['change24h'] > 0 ? '+' : ''}\$${_cryptoData!['change24h'].toStringAsFixed(2)}'),
-            _buildDetailRow('24s Değişim %', '${_cryptoData!['changePercent24h'] > 0 ? '+' : ''}${_cryptoData!['changePercent24h'].toStringAsFixed(2)}%'),
-            _buildDetailRow('24s Yüksek', '\$${_cryptoData!['high24h'].toStringAsFixed(2)}'),
-            _buildDetailRow('24s Düşük', '\$${_cryptoData!['low24h'].toStringAsFixed(2)}'),
-          ]),
         ],
       ),
     );
   }
 
+  Widget _buildTabBar() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton('Chart', 0),
+          ),
+          Expanded(
+            child: _buildTabButton('Analysis', 1),
+          ),
+          Expanded(
+            child: _buildTabButton('News', 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, int index) {
+    final isSelected = _selectedTab == index;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppConfig.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey[600],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_selectedTab) {
+      case 0:
+        return _buildChartTab();
+      case 1:
+        return _buildAnalysisTab();
+      case 2:
+        return _buildNewsTab();
+      default:
+        return _buildChartTab();
+    }
+  }
+
+  Widget _buildChartTab() {
+    return Padding(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        children: [
+          // Chart Placeholder
+          Container(
+            height: 300.h,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.show_chart,
+                    size: 64.w,
+                    color: Colors.grey[400],
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'Price Chart',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Interactive price chart will be displayed here',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 24.h),
+          
+          // Timeframe Selector
+          Row(
+            children: [
+              Expanded(
+                child: _buildTimeframeButton('1H', true),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _buildTimeframeButton('4H', false),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _buildTimeframeButton('1D', false),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _buildTimeframeButton('1W', false),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeframeButton(String label, bool isSelected) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      decoration: BoxDecoration(
+        color: isSelected ? AppConfig.primaryColor : Colors.grey[200],
+        borderRadius: BorderRadius.circular(6.r),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w600,
+          color: isSelected ? Colors.white : Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAnalysisTab() {
-    return SingleChildScrollView(
+    return Padding(
       padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Technical Analysis
           Text(
-            'Teknik Analiz',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+            'Technical Analysis',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
             ),
           ),
           SizedBox(height: 16.h),
-
+          
           // Analysis Cards
-          AnalysisCard(
-            title: 'Pivot Traditional',
-            description: 'Fiyat pivot noktalarına yaklaşıyor. Güçlü destek seviyesi.',
-            signal: 'BUY',
-            confidence: 0.85,
-            timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-            onTap: () => context.go('/analysis/${widget.symbol}'),
+          _buildAnalysisCard(
+            'RSI',
+            '65.4',
+            'Neutral',
+            AppConfig.infoColor,
           ),
-
           SizedBox(height: 12.h),
-
-          AnalysisCard(
-            title: 'Moving Average Touch',
-            description: 'Fiyat 50 günlük ortalamaya dokundu. Yükseliş sinyali.',
-            signal: 'BUY',
-            confidence: 0.78,
-            timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-            onTap: () => context.go('/analysis/${widget.symbol}'),
+          _buildAnalysisCard(
+            'MACD',
+            'Bullish',
+            'Positive momentum',
+            AppConfig.successColor,
           ),
-
           SizedBox(height: 12.h),
+          _buildAnalysisCard(
+            'Bollinger Bands',
+            'Upper',
+            'Near resistance',
+            AppConfig.warningColor,
+          ),
+          SizedBox(height: 12.h),
+          _buildAnalysisCard(
+            'Support Level',
+            '\$42,100',
+            'Strong support',
+            AppConfig.successColor,
+          ),
+          SizedBox(height: 12.h),
+          _buildAnalysisCard(
+            'Resistance Level',
+            '\$44,500',
+            'Key resistance',
+            AppConfig.errorColor,
+          ),
+        ],
+      ),
+    );
+  }
 
-          AnalysisCard(
-            title: 'S1/R1 Touch',
-            description: 'Fiyat S1 destek seviyesinde. Dikkatli olun.',
-            signal: 'HOLD',
-            confidence: 0.65,
-            timestamp: DateTime.now().subtract(const Duration(hours: 6)),
-            onTap: () => context.go('/analysis/${widget.symbol}'),
+  Widget _buildAnalysisCard(String indicator, String value, String description, Color color) {
+    return CustomCard(
+      child: Row(
+        children: [
+          Container(
+            width: 4.w,
+            height: 40.h,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  indicator,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppConfig.primaryColor,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -433,26 +406,72 @@ class _CryptoDetailPageState extends ConsumerState<CryptoDetailPage>
   }
 
   Widget _buildNewsTab() {
-    return const Center(
-      child: Text('Haberler sayfası'),
+    return Padding(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Latest News',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          // News Items
+          _buildNewsItem(
+            'Bitcoin Reaches New All-Time High',
+            'Bitcoin has reached a new all-time high of $44,500, driven by institutional adoption...',
+            '2 hours ago',
+          ),
+          SizedBox(height: 12.h),
+          _buildNewsItem(
+            'Major Bank Announces Bitcoin Support',
+            'A major bank has announced plans to offer Bitcoin trading services to its clients...',
+            '4 hours ago',
+          ),
+          SizedBox(height: 12.h),
+          _buildNewsItem(
+            'Regulatory Update: New Guidelines Released',
+            'Financial regulators have released new guidelines for cryptocurrency trading...',
+            '6 hours ago',
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard(String title, String value) {
+  Widget _buildNewsItem(String title, String description, String time) {
     return CustomCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: AppConfig.primaryColor,
             ),
           ),
           SizedBox(height: 8.h),
           Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+            description,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey[600],
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            time,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: Colors.grey[500],
             ),
           ),
         ],
@@ -460,42 +479,41 @@ class _CryptoDetailPageState extends ConsumerState<CryptoDetailPage>
     );
   }
 
-  Widget _buildDetailCard(List<Widget> children) {
-    return CustomCard(
-      child: Column(
-        children: children,
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.favorite_border),
+              title: Text('Add to Favorites'),
+              onTap: () {
+                Navigator.pop(context);
+                // Add to favorites logic
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.notifications_outlined),
+              title: Text('Set Price Alert'),
+              onTap: () {
+                Navigator.pop(context);
+                // Set price alert logic
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.share),
+              title: Text('Share'),
+              onTap: () {
+                Navigator.pop(context);
+                // Share logic
+              },
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.h),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _shareCrypto() {
-    // TODO: Implement share functionality
-  }
-
-  void _setPriceAlert() {
-    // TODO: Implement price alert functionality
   }
 }

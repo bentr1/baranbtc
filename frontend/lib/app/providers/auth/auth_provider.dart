@@ -1,32 +1,44 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
 
-part 'auth_provider.g.dart';
+class AuthNotifier extends StateNotifier<AsyncValue<AuthState>> {
+  AuthNotifier() : super(const AsyncValue.loading()) {
+    _initialize();
+  }
 
-@riverpod
-class AuthNotifier extends _$AuthNotifier {
-  @override
-  FutureOr<AuthState> build() async {
-    // Check if user is already authenticated
-    final isAuthenticated = await AuthService.isAuthenticated();
-    if (isAuthenticated) {
-      final user = await AuthService.getCurrentUser();
-      return AuthState.authenticated(user);
+  Future<void> _initialize() async {
+    try {
+      final isAuthenticated = await AuthService.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await AuthService.getCurrentUser();
+        if (user != null) {
+          state = AsyncValue.data(AuthState.authenticated(user));
+        } else {
+          state = AsyncValue.data(AuthState.unauthenticated());
+        }
+      } else {
+        state = AsyncValue.data(AuthState.unauthenticated());
+      }
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
     }
-    return const AuthState.unauthenticated();
   }
 
   Future<void> login({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     state = const AsyncValue.loading();
     
     try {
-      final user = await AuthService.login(email: email, password: password);
+      final user = await AuthService.login(
+        email: email, 
+        password: password,
+        rememberMe: rememberMe,
+      );
       state = AsyncValue.data(AuthState.authenticated(user));
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -34,21 +46,17 @@ class AuthNotifier extends _$AuthNotifier {
   }
 
   Future<void> register({
+    required String name,
     required String email,
     required String password,
-    required String tcId,
-    required String firstName,
-    required String lastName,
   }) async {
     state = const AsyncValue.loading();
     
     try {
       final user = await AuthService.register(
+        name: name,
         email: email,
         password: password,
-        tcId: tcId,
-        firstName: firstName,
-        lastName: lastName,
       );
       state = AsyncValue.data(AuthState.authenticated(user));
     } catch (error, stackTrace) {
@@ -59,7 +67,7 @@ class AuthNotifier extends _$AuthNotifier {
   Future<void> logout() async {
     try {
       await AuthService.logout();
-      state = const AsyncValue.data(AuthState.unauthenticated());
+      state = AsyncValue.data(AuthState.unauthenticated());
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
     }
@@ -74,12 +82,22 @@ class AuthNotifier extends _$AuthNotifier {
     }
   }
 
-  Future<void> verifyEmail(String token) async {
+  Future<void> verifyEmail(String code) async {
     try {
-      await AuthService.verifyEmail(token);
+      await AuthService.verifyEmail(code);
       // Refresh user data after email verification
       final user = await AuthService.getCurrentUser();
-      state = AsyncValue.data(AuthState.authenticated(user));
+      if (user != null) {
+        state = AsyncValue.data(AuthState.authenticated(user));
+      }
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
+  Future<void> resendVerificationCode() async {
+    try {
+      await AuthService.resendVerificationCode();
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
     }
@@ -104,13 +122,22 @@ class AuthNotifier extends _$AuthNotifier {
     }
   }
 
-  Future<void> setupMFA() async {
+  Future<Map<String, String>> generateMFASecret() async {
     try {
-      final mfaSecret = await AuthService.setupMFA();
-      // Update state to show MFA setup
-      final currentState = state.value;
-      if (currentState is AuthenticatedState) {
-        state = AsyncValue.data(AuthState.mfaSetup(currentState.user, mfaSecret));
+      return await AuthService.generateMFASecret();
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> verifyMFASetup(String code) async {
+    try {
+      await AuthService.verifyMFASetup(code);
+      // Return to authenticated state
+      final user = await AuthService.getCurrentUser();
+      if (user != null) {
+        state = AsyncValue.data(AuthState.authenticated(user));
       }
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -122,6 +149,17 @@ class AuthNotifier extends _$AuthNotifier {
       await AuthService.verifyMFA(code);
       // Return to authenticated state
       final user = await AuthService.getCurrentUser();
+      if (user != null) {
+        state = AsyncValue.data(AuthState.authenticated(user));
+      }
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
+  Future<void> biometricLogin() async {
+    try {
+      final user = await AuthService.biometricLogin();
       state = AsyncValue.data(AuthState.authenticated(user));
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -162,7 +200,7 @@ class AuthNotifier extends _$AuthNotifier {
   Future<void> deleteAccount() async {
     try {
       await AuthService.deleteAccount();
-      state = const AsyncValue.data(AuthState.unauthenticated());
+      state = AsyncValue.data(AuthState.unauthenticated());
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
     }
@@ -172,6 +210,9 @@ class AuthNotifier extends _$AuthNotifier {
 // Auth State
 abstract class AuthState {
   const AuthState();
+  
+  static AuthState authenticated(User user) => AuthenticatedState(user);
+  static AuthState unauthenticated() => const UnauthenticatedState();
 }
 
 class UnauthenticatedState extends AuthState {
@@ -180,8 +221,9 @@ class UnauthenticatedState extends AuthState {
 
 class AuthenticatedState extends AuthState {
   final User user;
+  final bool biometricAvailable;
   
-  const AuthenticatedState(this.user);
+  const AuthenticatedState(this.user, {this.biometricAvailable = false});
 }
 
 class MFASetupState extends AuthState {
@@ -232,4 +274,10 @@ final isEmailVerifiedProvider = Provider<bool>((ref) {
 final isMFASetupProvider = Provider<bool>((ref) {
   final user = ref.watch(currentUserProvider);
   return user?.isMFASetup ?? false;
+});
+
+final biometricAvailableProvider = Provider<bool>((ref) {
+  // This would check if biometric authentication is available
+  // For now, return true for demo purposes
+  return true;
 });

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
-import '../../../../shared/widgets/error_widget.dart';
+import '../../../../app/widgets/common/custom_button.dart';
+import '../../../../app/widgets/common/custom_text_field.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../app/providers/auth/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -21,10 +19,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+  bool _rememberMe = false;
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -38,22 +34,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
-      await AuthService.login(
+      await ref.read(authProvider.notifier).login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        rememberMe: _rememberMe,
       );
 
       if (mounted) {
         context.go('/dashboard');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppConfig.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -63,23 +64,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  Future<void> _loginWithBiometrics() async {
-    try {
-      final isAuthenticated = await AuthService.authenticateWithBiometrics();
-      if (isAuthenticated && mounted) {
-        context.go('/dashboard');
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Biyometrik kimlik doğrulama başarısız';
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -89,8 +75,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(height: 40.h),
-
+                SizedBox(height: 48.h),
+                
                 // Logo and Title
                 Center(
                   child: Column(
@@ -100,194 +86,176 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         height: 80.w,
                         decoration: BoxDecoration(
                           color: AppConfig.primaryColor,
-                          borderRadius: BorderRadius.circular(20.r),
+                          borderRadius: BorderRadius.circular(16.r),
                         ),
                         child: Icon(
                           Icons.trending_up,
-                          size: 40.sp,
+                          size: 40.w,
                           color: Colors.white,
                         ),
                       ),
                       SizedBox(height: 24.h),
                       Text(
-                        'Hoş Geldiniz',
-                        style: theme.textTheme.headlineMedium?.copyWith(
+                        'Welcome Back',
+                        style: TextStyle(
+                          fontSize: 28.sp,
                           fontWeight: FontWeight.bold,
+                          color: AppConfig.primaryColor,
                         ),
                       ),
                       SizedBox(height: 8.h),
                       Text(
-                        'Hesabınıza giriş yapın',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        'Sign in to your account',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
                 ),
-
+                
                 SizedBox(height: 48.h),
-
-                // Error Message
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: AppConfig.errorColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: AppConfig.errorColor.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
+                
+                // Email Field
+                CustomTextField(
+                  label: 'Email',
+                  hint: 'Enter your email',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  inputType: InputType.email,
+                  textInputAction: TextInputAction.next,
+                  prefixIcon: Icon(Icons.email_outlined),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                
+                SizedBox(height: 16.h),
+                
+                // Password Field
+                CustomTextField(
+                  label: 'Password',
+                  hint: 'Enter your password',
+                  controller: _passwordController,
+                  inputType: InputType.password,
+                  textInputAction: TextInputAction.done,
+                  prefixIcon: Icon(Icons.lock_outline),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                
+                SizedBox(height: 16.h),
+                
+                // Remember Me and Forgot Password
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: AppConfig.errorColor,
-                          size: 20.sp,
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? false;
+                            });
+                          },
+                          activeColor: AppConfig.primaryColor,
                         ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppConfig.errorColor,
-                            ),
+                        Text(
+                          'Remember me',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  SizedBox(height: 24.h),
-                ],
-
-                // Email Field
-                CustomTextField(
-                  label: 'E-posta',
-                  hint: 'ornek@email.com',
-                  type: TextFieldType.email,
-                  controller: _emailController,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'E-posta adresi gerekli';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Geçerli bir e-posta adresi girin';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: 24.h),
-
-                // Password Field
-                CustomTextField(
-                  label: 'Şifre',
-                  hint: 'Şifrenizi girin',
-                  type: TextFieldType.password,
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Şifre gerekli';
-                    }
-                    if (value.length < 6) {
-                      return 'Şifre en az 6 karakter olmalı';
-                    }
-                    return null;
-                  },
-                ),
-
-                SizedBox(height: 16.h),
-
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => context.go('/forgot-password'),
-                    child: Text(
-                      'Şifremi Unuttum',
-                      style: TextStyle(
-                        color: AppConfig.primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: 32.h),
-
-                // Login Button
-                LoadingButton(
-                  text: 'Giriş Yap',
-                  onPressed: _login,
-                  isLoading: _isLoading,
-                  isFullWidth: true,
-                ),
-
-                SizedBox(height: 24.h),
-
-                // Biometric Login
-                FutureBuilder<bool>(
-                  future: AuthService.isBiometricEnabled(),
-                  builder: (context, snapshot) {
-                    if (snapshot.data == true) {
-                      return Column(
-                        children: [
-                          Text(
-                            'veya',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                          ),
-                          SizedBox(height: 16.h),
-                          CustomButton(
-                            text: 'Biyometrik Giriş',
-                            type: ButtonType.outline,
-                            icon: Icons.fingerprint,
-                            onPressed: _loginWithBiometrics,
-                            isFullWidth: true,
-                          ),
-                          SizedBox(height: 24.h),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-
-                // Register Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Hesabınız yok mu? ',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
                     TextButton(
-                      onPressed: () => context.go('/register'),
+                      onPressed: () => context.go('/forgot-password'),
                       child: Text(
-                        'Kayıt Ol',
+                        'Forgot Password?',
                         style: TextStyle(
+                          fontSize: 14.sp,
                           color: AppConfig.primaryColor,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
-
+                
                 SizedBox(height: 32.h),
-
-                // Terms and Privacy
-                Text(
-                  'Giriş yaparak Kullanım Şartları ve Gizlilik Politikası\'nı kabul etmiş olursunuz.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                  textAlign: TextAlign.center,
+                
+                // Login Button
+                CustomButton(
+                  text: 'Sign In',
+                  onPressed: _isLoading ? null : _login,
+                  isLoading: _isLoading,
+                  isFullWidth: true,
+                  type: ButtonType.primary,
+                  size: ButtonSize.large,
+                ),
+                
+                SizedBox(height: 24.h),
+                
+                // Divider
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                  ],
+                ),
+                
+                SizedBox(height: 24.h),
+                
+                // Register Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account? ",
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/register'),
+                      child: Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: AppConfig.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

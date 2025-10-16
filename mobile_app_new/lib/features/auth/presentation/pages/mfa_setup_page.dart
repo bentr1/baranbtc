@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../core/config/app_config.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../../app/widgets/common/custom_button.dart';
+import '../../../../app/widgets/common/custom_text_field.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../app/providers/auth/auth_provider.dart';
 
 class MFASetupPage extends ConsumerStatefulWidget {
   const MFASetupPage({super.key});
@@ -21,18 +18,15 @@ class MFASetupPage extends ConsumerStatefulWidget {
 class _MFASetupPageState extends ConsumerState<MFASetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
-  
   bool _isLoading = false;
-  bool _isSetup = false;
-  String? _secret;
-  String? _qrCodeData;
-  String? _errorMessage;
-  String? _successMessage;
+  bool _isGenerating = false;
+  String? _mfaSecret;
+  String? _qrCode;
 
   @override
   void initState() {
     super.initState();
-    _setupMFA();
+    _generateMFASecret();
   }
 
   @override
@@ -41,57 +35,57 @@ class _MFASetupPageState extends ConsumerState<MFASetupPage> {
     super.dispose();
   }
 
-  Future<void> _setupMFA() async {
+  Future<void> _generateMFASecret() async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isGenerating = true;
     });
 
     try {
-      final secret = await AuthService.setupMFA();
+      final result = await ref.read(authProvider.notifier).generateMFASecret();
       setState(() {
-        _secret = secret;
-        _qrCodeData = 'otpauth://totp/BTCBaran?secret=$secret&issuer=BTCBaran';
+        _mfaSecret = result['secret'];
+        _qrCode = result['qrCode'];
       });
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppConfig.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isGenerating = false;
         });
       }
     }
   }
 
-  Future<void> _verifyMFA() async {
+  Future<void> _verifyMFASetup() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
-      _successMessage = null;
     });
 
     try {
-      await AuthService.verifyMFA(_codeController.text.trim());
+      await ref.read(authProvider.notifier).verifyMFASetup(_codeController.text.trim());
       
-      setState(() {
-        _isSetup = true;
-        _successMessage = 'İki faktörlü kimlik doğrulama başarıyla kuruldu';
-      });
-
-      // Wait a bit then navigate to dashboard
-      await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         context.go('/dashboard');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppConfig.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -103,13 +97,7 @@ class _MFASetupPageState extends ConsumerState<MFASetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('2FA Kurulumu'),
-        centerTitle: true,
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24.w),
@@ -118,196 +106,153 @@ class _MFASetupPageState extends ConsumerState<MFASetupPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                SizedBox(height: 48.h),
+                
+                // Back Button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => context.pop(),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      size: 24.w,
+                      color: AppConfig.primaryColor,
+                    ),
+                  ),
+                ),
+                
                 SizedBox(height: 24.h),
-
-                // Icon
+                
+                // Logo and Title
                 Center(
-                  child: Container(
-                    width: 80.w,
-                    height: 80.w,
-                    decoration: BoxDecoration(
-                      color: _isSetup 
-                          ? AppConfig.successColor.withOpacity(0.1)
-                          : AppConfig.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(40.r),
-                    ),
-                    child: Icon(
-                      _isSetup ? Icons.security : Icons.security,
-                      size: 40.sp,
-                      color: _isSetup 
-                          ? AppConfig.successColor
-                          : AppConfig.primaryColor,
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: 32.h),
-
-                // Title
-                Text(
-                  _isSetup ? '2FA Kuruldu!' : 'İki Faktörlü Kimlik Doğrulama',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: _isSetup 
-                        ? AppConfig.successColor
-                        : theme.colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                SizedBox(height: 16.h),
-
-                // Description
-                Text(
-                  _isSetup
-                      ? 'İki faktörlü kimlik doğrulama başarıyla kuruldu. Hesabınız artık daha güvenli.'
-                      : 'Hesabınızı daha güvenli hale getirmek için 2FA kurun. Google Authenticator gibi bir uygulama kullanın.',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                SizedBox(height: 32.h),
-
-                // Success Message
-                if (_successMessage != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: AppConfig.successColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: AppConfig.successColor.withOpacity(0.3),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80.w,
+                        height: 80.w,
+                        decoration: BoxDecoration(
+                          color: AppConfig.primaryColor,
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
+                        child: Icon(
+                          Icons.security,
+                          size: 40.w,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          color: AppConfig.successColor,
-                          size: 20.sp,
+                      SizedBox(height: 24.h),
+                      Text(
+                        'Setup 2FA',
+                        style: TextStyle(
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.bold,
+                          color: AppConfig.primaryColor,
                         ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Text(
-                            _successMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppConfig.successColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 24.h),
-                ],
-
-                // Error Message
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: AppConfig.errorColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: AppConfig.errorColor.withOpacity(0.3),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: AppConfig.errorColor,
-                          size: 20.sp,
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Add an extra layer of security to your account',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          color: Colors.grey[600],
                         ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppConfig.errorColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 24.h),
-                ],
-
-                if (!_isSetup && _secret != null) ...[
-                  // QR Code
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                    ),
+                ),
+                
+                SizedBox(height: 48.h),
+                
+                if (_isGenerating) ...[
+                  // Loading State
+                  Center(
                     child: Column(
                       children: [
-                        Text(
-                          'QR Kodu Tarayın',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        QrImageView(
-                          data: _qrCodeData!,
-                          version: QrVersions.auto,
-                          size: 200.w,
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppConfig.primaryColor),
                         ),
                         SizedBox(height: 16.h),
                         Text(
-                          'Google Authenticator ile QR kodu tarayın',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          'Generating MFA secret...',
+                          style: TextStyle(
+                            fontSize: 16.sp,
+                            color: Colors.grey[600],
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
                   ),
-
-                  SizedBox(height: 24.h),
-
-                  // Manual Key
+                ] else if (_mfaSecret != null) ...[
+                  // MFA Setup Instructions
                   Container(
-                    padding: EdgeInsets.all(16.w),
+                    padding: EdgeInsets.all(24.w),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant,
+                      color: AppConfig.primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: AppConfig.primaryColor.withOpacity(0.3),
+                      ),
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Icon(
+                          Icons.qr_code,
+                          size: 48.w,
+                          color: AppConfig.primaryColor,
+                        ),
+                        SizedBox(height: 16.h),
                         Text(
-                          'Manuel Anahtar',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                          'Scan QR Code',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppConfig.primaryColor,
                           ),
                         ),
                         SizedBox(height: 8.h),
                         Text(
-                          'QR kod çalışmıyorsa bu anahtarı manuel olarak girin:',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          'Use your authenticator app to scan this QR code',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 16.h),
+                        if (_qrCode != null)
+                          Container(
+                            padding: EdgeInsets.all(16.w),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Image.network(
+                              _qrCode!,
+                              width: 200.w,
+                              height: 200.w,
+                            ),
+                          ),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'Or enter this code manually:',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[600],
                           ),
                         ),
                         SizedBox(height: 8.h),
                         Container(
                           padding: EdgeInsets.all(12.w),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
                           ),
-                          child: SelectableText(
-                            _secret!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                          child: Text(
+                            _mfaSecret!,
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -315,115 +260,57 @@ class _MFASetupPageState extends ConsumerState<MFASetupPage> {
                       ],
                     ),
                   ),
-
+                  
                   SizedBox(height: 32.h),
-
+                  
                   // Verification Code Field
                   CustomTextField(
-                    label: 'Doğrulama Kodu',
-                    hint: '6 haneli kodu girin',
+                    label: 'Verification Code',
+                    hint: 'Enter 6-digit code from your app',
                     controller: _codeController,
-                    type: TextFieldType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
+                    keyboardType: TextInputType.number,
+                    inputType: InputType.number,
+                    textInputAction: TextInputAction.done,
+                    prefixIcon: Icon(Icons.verified_user),
+                    maxLength: 6,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Doğrulama kodu gerekli';
+                        return 'Please enter verification code';
                       }
                       if (value.length != 6) {
-                        return 'Doğrulama kodu 6 haneli olmalı';
+                        return 'Verification code must be 6 digits';
                       }
                       return null;
                     },
                   ),
-
+                  
                   SizedBox(height: 32.h),
-
+                  
                   // Verify Button
-                  LoadingButton(
-                    text: '2FA\'yı Etkinleştir',
-                    onPressed: _verifyMFA,
+                  CustomButton(
+                    text: 'Verify & Enable 2FA',
+                    onPressed: _isLoading ? null : _verifyMFASetup,
                     isLoading: _isLoading,
                     isFullWidth: true,
-                  ),
-                ] else if (_isSetup) ...[
-                  // Success Animation
-                  SizedBox(
-                    height: 100.h,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppConfig.successColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ] else if (_isLoading) ...[
-                  // Loading
-                  Center(
-                    child: LoadingIndicator(
-                      message: '2FA kurulumu hazırlanıyor...',
-                    ),
+                    type: ButtonType.primary,
+                    size: ButtonSize.large,
                   ),
                 ],
-
-                SizedBox(height: 32.h),
-
-                // Help Text
-                Container(
-                  padding: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    color: AppConfig.infoColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: AppConfig.infoColor.withOpacity(0.3),
+                
+                SizedBox(height: 24.h),
+                
+                // Skip for now
+                TextButton(
+                  onPressed: () => context.go('/dashboard'),
+                  child: Text(
+                    'Skip for now',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
                     ),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: AppConfig.infoColor,
-                            size: 20.sp,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            '2FA Hakkında',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppConfig.infoColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        '2FA, hesabınızı daha güvenli hale getirir. Giriş yaparken şifrenize ek olarak telefonunuzdaki uygulamadan aldığınız 6 haneli kodu girmeniz gerekir.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppConfig.infoColor,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-
-                SizedBox(height: 24.h),
-
-                // Skip Button
-                if (!_isSetup)
-                  TextButton(
-                    onPressed: () => context.go('/dashboard'),
-                    child: Text(
-                      'Şimdi Değil',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),

@@ -1,6 +1,7 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
 import { logger, securityLogger } from '../utils/logger';
 import { config } from '../config/config';
+import { MigrationRunner } from './migrations/migrationRunner';
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
@@ -137,14 +138,9 @@ export class DatabaseConnection {
       // Test connection
       await this.testConnection();
       
-      // Create tables if they don't exist
-      await this.createTables();
-      
-      // Create indexes
-      await this.createIndexes();
-      
-      // Set up triggers for audit logging
-      await this.setupAuditTriggers();
+      // Run database migrations
+      const migrationRunner = new MigrationRunner(this.pool);
+      await migrationRunner.runMigrations();
       
       this.isInitialized = true;
       this.connectionAttempts = 0;

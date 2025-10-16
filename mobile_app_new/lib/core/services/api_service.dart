@@ -31,7 +31,7 @@ class ApiService {
           }
 
           // Add device info
-          options.headers['User-Agent'] = 'BTCBaran-Mobile/1.0.0';
+          options.headers['User-Agent'] = 'BTCBaran/1.0.0';
           options.headers['Accept'] = 'application/json';
           options.headers['Content-Type'] = 'application/json';
 
@@ -248,63 +248,6 @@ class ApiService {
       );
       
       return _handleResponse(response);
-    } catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // Upload file
-  static Future<Map<String, dynamic>> uploadFile(
-    String path,
-    File file, {
-    String fieldName = 'file',
-    Map<String, dynamic>? extraData,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onSendProgress,
-  }) async {
-    _ensureInitialized();
-    
-    try {
-      final formData = FormData.fromMap({
-        fieldName: await MultipartFile.fromFile(file.path),
-        ...?extraData,
-      });
-
-      final response = await _dio.post(
-        path,
-        data: formData,
-        options: options,
-        cancelToken: cancelToken,
-        onSendProgress: onSendProgress,
-      );
-      
-      return _handleResponse(response);
-    } catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // Download file
-  static Future<void> downloadFile(
-    String path,
-    String savePath, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onReceiveProgress,
-  }) async {
-    _ensureInitialized();
-    
-    try {
-      await _dio.download(
-        path,
-        savePath,
-        queryParameters: queryParameters,
-        options: options,
-        cancelToken: cancelToken,
-        onReceiveProgress: onReceiveProgress,
-      );
     } catch (e) {
       throw _handleError(e);
     }

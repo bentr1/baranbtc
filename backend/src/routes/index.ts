@@ -15,6 +15,16 @@ router.use('/health', healthRoutes);
 // API routes
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+
+// API v1 routes (for mobile app compatibility)
+router.use('/v1/auth', authRoutes);
+router.use('/v1/users', userRoutes);
+router.use('/v1/crypto', cryptoRoutes);
+router.use('/v1/analysis', analysisRoutes);
+router.use('/v1/notifications', notificationRoutes);
+router.use('/v1/admin', adminRoutes);
+
+// Original API routes (backward compatibility)
 router.use('/crypto', cryptoRoutes);
 router.use('/analysis', analysisRoutes);
 router.use('/notifications', notificationRoutes);
